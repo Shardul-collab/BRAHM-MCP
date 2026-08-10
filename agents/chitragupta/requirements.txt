@@ -1,0 +1,18 @@
+# Core
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Voice
+openai-whisper>=20231117
+sounddevice>=0.4.6
+numpy>=1.24.0
+
+# NLP
+transformers>=4.38.0
+torch>=2.1.0          # CPU-only is fine; swap for torch+cpu wheel if needed
+
+# Scheduler
+schedule>=1.2.1
+
+# Storage
+# sqlite3 is stdlib — no install needed

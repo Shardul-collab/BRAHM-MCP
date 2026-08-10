@@ -1,0 +1,74 @@
+At line 277 of file /home/conda/feedstock_root/build_artifacts/bld/rattler-build_qe_1766174292/work/PHonon/PH/io_dyn_mat_old.f90 (unit = 1, file = 'dyn4')
+Fortran runtime error: Bad real number in item 1 of list input
+
+Error termination. Backtrace:
+#0  0xf5921518c2b in read_real
+	at ../../../libgfortran/io/list_read.c:2180
+#1  0xf592151a0b5 in list_formatted_read_scalar
+	at ../../../libgfortran/io/list_read.c:2337
+#2  0x62a4d504a71e in ???
+#3  0x62a4d503d31a in ???
+#4  0x62a4d503453e in ???
+#5  0x62a4d50340a0 in ???
+#6  0xf592102a1c9 in ???
+#7  0xf592102a28a in ???
+#8  0x62a4d50340d0 in ???
+#9  0xffffffffffffffff in ???
+
+     Program Q2R v.7.5 starts on  3Aug2026 at 19:26: 6 
+
+     This program is part of the open-source Quantum ESPRESSO suite
+     for quantum simulation of materials; please cite
+         "P. Giannozzi et al., J. Phys.:Condens. Matter 21 395502 (2009);
+         "P. Giannozzi et al., J. Phys.:Condens. Matter 29 465901 (2017);
+         "P. Giannozzi et al., J. Chem. Phys. 152 154105 (2020);
+          URL http://www.quantum-espresso.org", 
+     in publications or presentations arising from this work. More details at
+     http://www.quantum-espresso.org/quote
+
+     Parallel version (MPI & OpenMP), running on       4 processor cores
+     Number of MPI processes:                 1
+     Threads/MPI process:                     4
+
+     MPI processes distributed on     1 nodes
+     2721 MiB available memory on the printing compute node when the environment starts
+
+
+  reading grid info from file dyn0    
+
+  reading force constants from file dyn1
+ macroscopic fields = T
+   7.25372   0.00000   0.00000
+   0.00000   7.25372  -0.00000
+   0.00000  -0.00000   7.25372
+  na=            1
+   2.01491   0.00000   0.00000
+   0.00000   2.01491   0.00000
+   0.00000   0.00000   2.01491
+  na=            2
+  -1.87305  -0.00000  -0.00000
+  -0.00000  -1.87305  -0.00000
+   0.00000  -0.00000  -1.87305
+  Norm of the difference between old and new effective charges:    0.17373525956204413645
+  alpha Ewald:    1.4534556620561196     
+  nqs=            1
+ q=   0.00000000  0.00000000  0.00000000
+  reading force constants from file dyn2
+  alpha Ewald:    1.4534556620561196     
+  nqs=            8
+ q=   0.17677670  0.17677670 -0.17677670
+ q=  -0.17677670 -0.17677670  0.17677670
+ q=  -0.17677670  0.17677670  0.17677670
+ q=   0.17677670 -0.17677670 -0.17677670
+ q=  -0.17677670 -0.17677670 -0.17677670
+ q=   0.17677670  0.17677670  0.17677670
+ q=   0.17677670 -0.17677670  0.17677670
+ q=  -0.17677670  0.17677670 -0.17677670
+  reading force constants from file dyn3
+  alpha Ewald:    1.4534556620561196     
+  nqs=            4
+ q=  -0.35355339 -0.35355339  0.35355339
+ q=   0.35355339 -0.35355339 -0.35355339
+ q=   0.35355339  0.35355339  0.35355339
+ q=  -0.35355339  0.35355339 -0.35355339
+  reading force constants from file dyn4

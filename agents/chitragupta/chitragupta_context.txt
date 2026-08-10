@@ -1,0 +1,1069 @@
+===== TREE =====
+.
+├── README.md
+├── SETUP.md
+├── __pycache__
+│   └── api_server.cpython-312.pyc
+├── analysis
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── pattern_analyzer.cpython-312.pyc
+│   └── pattern_analyzer.py
+├── api
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   ├── app.cpython-312.pyc
+│   │   ├── dependencies.cpython-312.pyc
+│   │   └── models.cpython-312.pyc
+│   ├── app.py
+│   ├── dependencies.py
+│   ├── models.py
+│   └── routers
+│       ├── __init__.py
+│       ├── __pycache__
+│       │   ├── __init__.cpython-312.pyc
+│       │   ├── analysis.cpython-312.pyc
+│       │   ├── databases.cpython-312.pyc
+│       │   ├── entries.cpython-312.pyc
+│       │   ├── relations.cpython-312.pyc
+│       │   ├── session.cpython-312.pyc
+│       │   └── voice.cpython-312.pyc
+│       ├── analysis.py
+│       ├── databases.py
+│       ├── entries.py
+│       ├── relations.py
+│       ├── session.py
+│       └── voice.py
+├── api_server.py
+├── chitragupta_context.txt
+├── config
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── settings.cpython-312.pyc
+│   └── settings.py
+├── core
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   ├── confirmation.cpython-312.pyc
+│   │   ├── conversation_engine.cpython-312.pyc
+│   │   ├── conversation_ui.cpython-312.pyc
+│   │   ├── dialogue_fsm.cpython-312.pyc
+│   │   ├── json_builder.cpython-312.pyc
+│   │   ├── session_memory.cpython-312.pyc
+│   │   └── validator.cpython-312.pyc
+│   ├── confirmation.py
+│   ├── conversation_engine.py
+│   ├── conversation_ui.py
+│   ├── dialogue_fsm.py
+│   ├── json_builder.py
+│   ├── session_cache.py
+│   ├── session_memory.py
+│   ├── skip_tracker.py
+│   └── validator.py
+├── data
+│   ├── schemas
+│   │   ├── errorleaktest.json
+│   │   ├── s_database_2.json
+│   │   ├── test.base1.json
+│   │   ├── test_db.json
+│   │   ├── test_db_1776921901.json
+│   │   ├── test_db_1776921949.json
+│   │   ├── test_db_1776921996.json
+│   │   ├── test_db_1776922030.json
+│   │   ├── test_expenses_1776956572.json
+│   │   ├── test_expenses_1776956616.json
+│   │   ├── testdb_1777004949.json
+│   │   └── znse_research_knowledge_base.json
+│   ├── session_memory.json
+│   └── write_journal.json
+├── install.py
+├── logs
+│   └── chitragupta.log
+├── main.py
+├── nlp
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   ├── intent_parser.cpython-312.pyc
+│   │   └── schema_inferencer.cpython-312.pyc
+│   ├── intent_parser.py
+│   └── schema_inferencer.py
+├── notion
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   ├── notion_client.cpython-312.pyc
+│   │   ├── relation_manager.cpython-312.pyc
+│   │   ├── schema_manager.cpython-312.pyc
+│   │   └── write_journal.cpython-312.pyc
+│   ├── notion_client.py
+│   ├── relation_manager.py
+│   ├── schema_manager.py
+│   └── write_journal.py
+├── requirements.txt
+├── scheduler
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-312.pyc
+│   │   └── reminder.cpython-312.pyc
+│   └── reminder.py
+├── system_test_1.py
+├── system_test_2.py
+└── voice
+    ├── __init__.py
+    ├── __pycache__
+    │   ├── __init__.cpython-312.pyc
+    │   └── whisper_handler.cpython-312.pyc
+    └── whisper_handler.py
+
+23 directories, 97 files
+\n===== README =====
+# Chitragupta
+
+> Voice-driven structured logging into Notion — speak to create databases, log entries, and analyze patterns.
+
+---
+
+## What problem it solves
+
+Notion is powerful but slow to fill manually. Chitragupta lets you talk to it: describe a database schema in plain English and it's created. Say your log entry aloud and it's structured, validated, and saved — no form, no keyboard, no browser tab.
+
+It runs entirely on your machine. Voice transcription (Whisper) and intent parsing (DistilBERT) are both local. Notion is the only external service.
+
+---
+
+## Key features
+
+| Feature | Details |
+|---|---|
+| **Voice input** | Local Whisper transcription — no cloud API needed |
+| **Schema inference** | Describe a database in plain English; fields are inferred and confirmed interactively |
+| **Notion integration** | Creates databases and pages via the Notion API; supports all major property types |
+| **Intent parsing** | Hybrid heuristic + DistilBERT QA pipeline extracts structured field values from free-form speech |
+| **Schema drift detection** | Warns before logging if your local schema diverges from the live Notion database |
+| **Write journal** | Pending writes are journalled locally so no entry is silently lost on a network failure |
+| **Database relations** | Create bidirectional relation fields between any two local databases |
+| **Pattern analysis** | Fetch database records and generate usage/trend reports |
+| **Scheduler** | Schedule recurring log-entry prompts (foreground, background, or run-once) |
+| **REST API** | Full FastAPI layer with versioned routes, API key auth, Swagger UI at `/docs` |
+
+---
+
+## Architecture
+
+```
+chitragupta/
+│
+├── main.py              ← Voice-first CLI entry point
+├── api_server.py        ← FastAPI / uvicorn entry point
+│
+├── core/                ← Conversation engine, dialogue FSM, session memory,
+│                           JSON builder, field validator
+│
+├── nlp/                 ← Intent parser (heuristic + DistilBERT),
+│                           schema inferencer (field type inference from text)
+│
+├── voice/               ← Whisper model singleton, audio recording,
+│                           hallucination filter, beep tones
+│
+├── notion/              ← Notion API client, schema manager (local JSON),
+│                           relation manager, write journal
+│
+├── api/                 ← FastAPI app factory, routers (databases, entries,
+│   └── routers/            voice, analysis), request models, API key auth
+│
+├── analysis/            ← Pattern analyzer (fetches + summarises Notion data)
+├── scheduler/           ← Recurring task runner (foreground / background)
+├── config/              ← Central settings — all env vars loaded here
+└── data/                ← Local schema files + session/write-journal state
+```
+
+Two independent entry points share the same underlying modules — no logic is duplicated between the CLI and the API.
+
+---
+
+## Requirements
+
+- Python 3.10+
+- A Notion account with an [internal integration](https://www.notion.so/my-integrations) and a target page shared with it
+- A working microphone (CLI mode only)
+- ~2 GB disk space for model weights (Whisper `base` + DistilBERT)
+
+> **CPU-only machines**: replace the `torch` line in `requirements.txt` with the CPU wheel from [pytorch.org](https://pytorch.org/get-started/locally/) before installing.
+
+---
+
+## Quick start
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/your-username/chitragupta.git
+cd chitragupta
+pip install -r requirements.txt
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and set at minimum:
+
+```env
+NOTION_TOKEN=secret_...          # Your Notion integration token
+NOTION_PAGE_ID=                  # ID of the parent page (optional — can type at runtime)
+
+# API server only
+API_KEY=your-secret-key          # Leave empty to disable auth in dev
+
+# Optional overrides
+WHISPER_MODEL=base               # tiny / base / small / medium / large
+SCHEDULE_TIME=09:00
+LOG_LEVEL=INFO
+PORT=8000
+```
+
+### 3a. Run the voice CLI
+
+```bash
+python main.py
+```
+
+You'll see a main menu. Say a number or keyword:
+
+```
+1 · Create database    2 · Log entry    3 · Analyze data
+4 · Link databases     5 · Start scheduler    6 · Exit
+```
+
+### 3b. Run the API server
+
+```bash
+python api_server.py
+# or
+uvicorn api_server:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Swagger UI → `http://localhost:8000/docs`
+
+---
+
+## API overview
+
+All routes are under `/v1`. Every request (except `/health`) requires the `X-API-Key` header.
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/health` | Liveness check — no auth required |
+| `GET/POST` | `/v1/databases` | List or create local schemas |
+| `GET/POST` | `/v1/entries/{name}` | Read or log entries for a database |
+| `POST` | `/v1/voice/log-entry` | Transcribe audio + save entry (returns 202) |
+| `GET` | `/v1/analysis/{name}` | Fetch pattern report for a database |
+| `POST` | `/v1/relations` | Create a relation field between two databases |
+| `GET` | `/v1/session/{name}/last-values` | Last confirmed field values for a database |
+| `GET` | `/v1/session/{name}/skip-counts` | Per-field skip counters for a database |
+| `DELETE` | `/v1/session/{name}/skip/{field}` | Reset skip counter for a specific field |
+| `DELETE` | `/v1/session/{name}` | Clear all session data for a database |
+
+Full request/response schemas are in the Swagger UI at `/docs`.
+
+---
+
+## Folder structure
+
+```
+chitragupta/
+├── analysis/           Pattern analyzer
+├── api/
+│   └── routers/        databases · entries · voice · analysis
+├── config/             settings.py — single source of truth for all env vars
+├── core/               conversation_engine · dialogue_fsm · json_builder
+│                       session_memory · validator · confirmation
+├── data/
+│   └── schemas/        Per-database JSON schema files (auto-created)
+├── logs/               chitragupta.log (auto-created)
+├── nlp/                intent_parser · schema_inferencer
+├── notion/             notion_client · schema_manager · relation_manager
+│                       write_journal
+├── scheduler/          reminder (foreground / background / run-once)
+├── voice/              whisper_handler
+├── main.py             CLI entry point
+├── api_server.py       API entry point
+├── install.py          Setup helper
+├── requirements.txt
+└── .env.example
+```
+
+---
+
+## Notes on first run
+
+- **Model download**: Whisper and DistilBERT weights are downloaded on first use (~1–2 GB total). Subsequent runs load from cache.
+- **Token validation**: `config/settings.py` checks that `NOTION_TOKEN` starts with `secret_` or `ntn_` and raises a clear error at startup if it is missing or malformed.
+- **Write journal**: if a Notion API call fails mid-session, the entry is preserved in `data/write_journal.json` and you are warned on the next run.
+
+---
+
+## Future scope
+
+- [ ] `.env.example` committed to repo
+- [ ] `pytest`-based test suite (replacing ad-hoc `system_test_*.py` scripts)
+- [ ] Web UI for non-CLI users
+- [ ] Multi-language voice support (Whisper supports 99 languages)
+- [ ] Export to formats other than Notion (CSV, SQLite)
+
+---
+
+## License
+
+<!-- Add your license here -->
+\n===== MAIN =====
+# main.py
+
+"""
+Chitragupta — Voice-First Entry Point  (v0.7 — Jarvis UX layer)
+
+Changes from v0.6
+-----------------
+- Time-aware greeting: "Good evening. Chitragupta ready." at startup.
+- DB name validation: rejects garbage like "okay man?" with a retry prompt
+  before building a schema for a nonsense name.
+- Natural schema read-back: before the confirmation loop, Jarvis speaks a
+  single sentence describing what will be created — no table reading.
+- Spoken save progress: "Saving to Notion now." before the API call,
+  "Done." after, so there's no eerie silence during the network call.
+- Closing line: "Anything else?" after a successful entry save.
+- Immediate first-entry offer: after DB creation, asks if user wants to
+  log their first entry right now instead of dropping to the main menu.
+- import datetime added for time-aware greeting.
+"""
+
+import sys
+import logging
+from datetime import datetime
+
+sys.stdout.reconfigure(line_buffering=True)
+
+for _noisy in ("transformers", "torch", "whisper", "httpx", "urllib3"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
+from config.settings import APP_NAME, APP_VERSION, NOTION_PAGE_ID
+import core.conversation_ui as ui
+
+from notion.schema_manager import (
+    create_schema, load_schema, list_schemas, update_notion_id,
+    schema_to_notion_properties,
+    SchemaValidationError, SchemaMissingError, SchemaAlreadyExistsError,
+)
+from notion.notion_client import create_database, create_page, NotionAPIError, check_schema_drift
+from notion.relation_manager import create_relation, RelationError
+from notion.write_journal import pending_for_database
+from core.json_builder import build_json, json_to_notion_properties, ValidationError
+from core.conversation_engine import run_conversation
+from voice.whisper_handler import manual_input
+from nlp.intent_parser import parse_command
+from nlp.schema_inferencer import (
+    infer_schema_from_description,
+    generate_followup_questions,
+    describe_schema_naturally,
+)
+from analysis.pattern_analyzer import analyze_database, print_report
+from scheduler.reminder import run_scheduler, run_now, run_in_background, SchedulerConfigError
+
+logger = logging.getLogger("chitragupta.main")
+
+
+# ── DB name validation ────────────────────────────────────────────────────────
+
+_DB_NOISE: frozenset[str] = frozenset({
+    "okay", "ok", "yes", "yeah", "no", "what", "huh",
+    "um", "uh", "hey", "hi", "hello", "done", "next",
+})
+
+
+def _is_valid_db_name(name: str) -> tuple[bool, str]:
+    """Returns (valid, reason). Reason is empty when valid."""
+    stripped = name.strip().rstrip("?!.,")
+    if len(stripped) < 2:
+        return False, "That name is too short."
+    if stripped.lower() in _DB_NOISE:
+        return False, f"'{stripped}' doesn't sound like a database name."
+    alpha_count = sum(c.isalpha() for c in stripped)
+    if alpha_count < 2:
+        return False, "That doesn't look like a valid name — try something more descriptive."
+    return True, ""
+
+
+# ── Shared picker ─────────────────────────────────────────────────────────────
+
+def _pick_database(action: str = "use") -> str | None:
+    schemas = list_schemas()
+    if not schemas:
+        ui.speak("No databases yet. Create one first.")
+        return None
+    return ui.pick_from_list(schemas, prompt=f"Which database do you want to {action}?")
+
+
+# ── Feature: Create Database ──────────────────────────────────────────────────
+
+def setup_database() -> None:
+    ui.section("Create Database")
+
+    # ── 1. Name — with validation + retry ────────────────────────────────────
+    for _attempt in range(3):
+        db_name = ui.ask_text("What should we call this database?")
+        if not db_name:
+            ui.error("A database name is required.")
+            return
+        valid, reason = _is_valid_db_name(db_name)
+        if valid:
+            db_name = db_name.strip().rstrip("?!.,")
+            break
+        ui.speak(f"{reason} What should we call this database?")
+    else:
+        ui.error("Couldn't get a valid database name. Cancelled.")
+        return
+
+    ui.acknowledge(f"'{db_name}'.")
+
+    # ── 2. Parent page ID ─────────────────────────────────────────────────────
+    env_page_id = NOTION_PAGE_ID.strip()
+    if env_page_id:
+        ui.info(f"Using NOTION_PAGE_ID from .env: {env_page_id}")
+        ui.speak("Parent page ID loaded from your .env. Press Enter to use it, or type a different ID.")
+        typed    = manual_input(f"Notion parent page ID [{env_page_id}]: ").strip()
+        parent_id = typed if typed else env_page_id
+    else:
+        ui.speak("NOTION_PAGE_ID is not set in your .env. Please type your Notion parent page ID.")
+        parent_id = manual_input("Notion parent page ID: ").strip()
+
+    if not parent_id:
+        ui.error("Parent page ID is required. Set NOTION_PAGE_ID in your .env.")
+        return
+
+    # ── 3. Conversational schema building ─────────────────────────────────────
+    fields = _build_schema_conversationally(db_name)
+    if not fields:
+        ui.error("Setup cancelled.")
+        return
+
+    # ── 4. Natural language read-back + visual confirmation ───────────────────
+    while True:
+        ui.show_schema(fields, title=f"Schema for '{db_name}'")
+        # Speak a single natural sentence instead of reading the table
+        ui.speak(describe_schema_naturally(fields, db_name))
+        ui.speak("Does this look right? Say 'yes' to create, 'edit' to change fields, or 'cancel'.")
+
+        cmd = ui.ask_command("yes / edit / cancel", timeout=6)
+
+        if cmd == "yes":
+            break
+        if cmd == "edit":
+            fields = _edit_fields_conversationally(fields)
+            if fields is None:
+                ui.error("Cancelled.")
+                return
+            continue
+        if cmd == "cancel":
+            ui.error("Cancelled.")
+            return
+        ui.speak("Say 'yes', 'edit', or 'cancel'.")
+
+    # ── 5. Save schema locally ────────────────────────────────────────────────
+    try:
+        create_schema(db_name, fields)
+        ui.acknowledge("Schema saved.")
+    except SchemaValidationError as exc:
+        ui.error(str(exc))
+        return
+    except SchemaAlreadyExistsError:
+        try:
+            existing = load_schema(db_name)
+            if existing.get("notion_database_id"):
+                ui.error(
+                    f"'{db_name}' already exists with Notion ID "
+                    f"'{existing['notion_database_id']}'. "
+                    "Delete the local schema file to start over."
+                )
+                return
+            ui.acknowledge(f"Recovering orphaned schema for '{db_name}'.")
+            create_schema(db_name, fields, overwrite=True)
+        except Exception:
+            if not ui.confirm("That database already exists. Overwrite?", default=False):
+                return
+            create_schema(db_name, fields, overwrite=True)
+
+    # ── 6. Create in Notion ───────────────────────────────────────────────────
+    ui.speak(f"Creating '{db_name}' in Notion now.")
+    try:
+        schema       = load_schema(db_name)
+        notion_props = schema_to_notion_properties(schema)
+        response     = create_database(parent_id, db_name, notion_props)
+        notion_id    = response["id"]
+    except (NotionAPIError, ValidationError) as exc:
+        ui.error(f"Error creating database in Notion: {exc}")
+        return
+
+    try:
+        update_notion_id(db_name, notion_id)
+    except Exception as exc:
+        ui.error(
+            f"Database created in Notion (ID: {notion_id}) but the local schema "
+            f"could not be updated: {exc}\n"
+            f"Fix manually: set notion_database_id = '{notion_id}' in your schema file."
+        )
+        return
+
+    ui.speak(f"'{db_name}' is live.")
+    ui.info(f"Notion ID: {notion_id}")
+    logger.info("setup_database complete | db='%s' id=%s", db_name, notion_id)
+
+    # ── 7. Immediate first-entry offer ────────────────────────────────────────
+    if ui.confirm("Want to log your first entry right now?", default=False):
+        _log_entry_for(db_name)
+
+
+def _build_schema_conversationally(db_name: str) -> list[dict] | None:
+    desc = ui.ask(f"What do you mainly want to track in '{db_name}'?", timeout=10)
+    if not desc:
+        ui.error("Got nothing — aborting.")
+        return None
+    ui.acknowledge()
+
+    fields       = infer_schema_from_description(desc)
+    followups    = generate_followup_questions(fields, desc)
+    full_context = desc
+
+    for q in followups[:3]:
+        ui.speak(q)
+        answer = ui.ask_text("Your answer", timeout=9)
+        if not answer:
+            ui.acknowledge("Skipping that.")
+            continue
+        ui.acknowledge()
+        full_context = f"{full_context}. {answer}"
+        fields = infer_schema_from_description(full_context)
+
+    return fields
+
+
+def _edit_fields_conversationally(fields: list[dict]) -> list[dict] | None:
+    current = list(fields)
+    while True:
+        ui.show_schema(current, title="Current fields")
+        ui.speak("Say 'add', 'remove', 'done', or 'cancel'.")
+        cmd_raw = ui.ask("add / remove / done / cancel", timeout=7)
+        cmd     = parse_command(cmd_raw)
+
+        if cmd == "yes" or any(w in cmd_raw.lower() for w in ("done", "finish", "looks good")):
+            return current
+        if cmd == "cancel":
+            return None
+        if "add" in cmd_raw.lower():
+            name = ui.ask_text("Name of the new field?", timeout=8)
+            if not name:
+                continue
+            ftype = ui.ask_text(
+                f"Type for '{name}'? (number, rich_text, select, multi_select, checkbox, date)",
+                timeout=8,
+            ).strip().lower()
+            if not ftype:
+                continue
+            new_field: dict = {"name": name, "type": ftype}
+            if ftype in ("select", "multi_select"):
+                raw_opts = ui.ask_text("Options? Separate by commas, or skip.", timeout=8)
+                if raw_opts and raw_opts.lower() not in ("skip", "no", "none"):
+                    new_field["options"] = [o.strip() for o in raw_opts.split(",") if o.strip()]
+            current.append(new_field)
+            ui.acknowledge(f"'{name}' ({ftype}) added.")
+        elif any(w in cmd_raw.lower() for w in ("remove", "delete")):
+            raw_target = ui.ask("Which field? Say its name or number.", timeout=6)
+            removed    = None
+            try:
+                idx = int(parse_command(raw_target)) - 1
+                if 0 <= idx < len(current):
+                    removed = current.pop(idx)
+            except (ValueError, TypeError):
+                match = next((f for f in current if f["name"].lower() in raw_target.lower()), None)
+                if match:
+                    current.remove(match)
+                    removed = match
+            if removed:
+                ui.acknowledge(f"'{removed['name']}' removed.")
+            else:
+                ui.speak("Couldn't find that field. Try its number.")
+        else:
+            ui.speak("Say 'add', 'remove', 'done', or 'cancel'.")
+
+
+# ── Feature: Log Entry ────────────────────────────────────────────────────────
+
+def _log_entry_for(db_name: str) -> None:
+    """Core logging logic for a named database."""
+    try:
+        schema = load_schema(db_name)
+    except SchemaMissingError as exc:
+        ui.error(str(exc))
+        return
+
+    notion_db_id = schema.get("notion_database_id", "").strip()
+    if not notion_db_id:
+        ui.error(f"No Notion ID for '{db_name}'. Run 'Create Database' first.")
+        return
+
+    drift = check_schema_drift(notion_db_id, schema.get("fields", []))
+    if drift:
+        drift_lines = "\n".join(f"  • {d}" for d in drift)
+        ui.error(f"Schema drift detected for '{db_name}':\n{drift_lines}")
+        if not ui.confirm("Log entry anyway?", default=False):
+            return
+
+    pending = pending_for_database(notion_db_id)
+    if pending:
+        ui.error(
+            f"Warning: {len(pending)} unconfirmed write(s) for '{db_name}'. "
+            "A previous entry may have been saved. Check Notion before continuing."
+        )
+        if not ui.confirm("Save anyway?", default=False):
+            ui.info("Entry discarded.")
+            return
+
+    approved = run_conversation(db_name, schema)
+    if approved is None:
+        ui.info("Entry discarded.")
+        return
+
+    try:
+        validated      = build_json(db_name, approved)
+        notion_payload = json_to_notion_properties(db_name, validated)
+    except ValidationError as exc:
+        ui.error(f"Entry contains invalid data and cannot be saved:\n{exc}")
+        return
+
+    # Spoken progress during Notion API call
+    ui.speak("Saving to Notion now.")
+    try:
+        response = create_page(notion_db_id, notion_payload)
+        page_id  = response.get("id", "unknown")
+        ui.speak("Done. Entry saved.")
+        ui.info(f"Page ID: {page_id}")
+        logger.info("log_entry complete | db='%s' page=%s", db_name, page_id)
+        # Closing line
+        ui.speak("Anything else?")
+    except ValidationError as exc:
+        ui.error(f"Payload validation failed — entry not saved:\n{exc}")
+    except NotionAPIError as exc:
+        ui.error(f"Notion API error: {exc}")
+        ui.speak("Couldn't reach Notion. Your session data is in the write journal.")
+    except Exception as exc:
+        ui.error(f"Unexpected error: {exc}")
+        logger.exception("log_entry: save failed")
+
+
+def log_entry() -> None:
+    ui.section("Log Entry")
+    db_name = _pick_database("log to")
+    if not db_name:
+        return
+    _log_entry_for(db_name)
+
+
+# ── Feature: Analyze ─────────────────────────────────────────────────────────
+
+def run_analysis() -> None:
+    ui.section("Analyze Data")
+    db_name = _pick_database("analyze")
+    if not db_name:
+        return
+    ui.speak(f"Fetching and analyzing '{db_name}'.")
+    try:
+        insights = analyze_database(db_name)
+        print_report(insights)
+    except SchemaMissingError as exc:
+        ui.error(str(exc))
+    except Exception as exc:
+        ui.error(f"Analysis error: {exc}")
+        logger.exception("run_analysis failed")
+
+
+# ── Feature: Link Databases ───────────────────────────────────────────────────
+
+def link_databases() -> None:
+    ui.section("Link Two Databases")
+    schemas = list_schemas()
+    if len(schemas) < 2:
+        ui.speak("You need at least two databases to create a relation.")
+        return
+    ui.speak("First, pick the source database.")
+    db_a = _pick_database("use as source")
+    if not db_a:
+        return
+    ui.speak("Now pick the target database.")
+    db_b = _pick_database("use as target")
+    if not db_b:
+        return
+    if db_a == db_b:
+        ui.error("Source and target must be different databases.")
+        return
+    relation_name = ui.ask_text(f"What should the relation field be called in '{db_a}'?")
+    if not relation_name:
+        ui.error("Relation name cannot be empty.")
+        return
+    bidirectional = ui.confirm("Add a reverse relation in the target too?", default=False)
+    reverse_name  = ""
+    if bidirectional:
+        reverse_name = ui.ask_text(f"Name of the reverse relation in '{db_b}'?")
+        if not reverse_name:
+            ui.error("Reverse relation name cannot be empty.")
+            return
+    try:
+        create_relation(
+            database_a=db_a, database_b=db_b,
+            relation_name=relation_name,
+            bidirectional=bidirectional,
+            reverse_relation_name=reverse_name,
+        )
+        ui.speak(f"Relation '{relation_name}' created.")
+    except (RelationError, SchemaMissingError) as exc:
+        ui.error(str(exc))
+    except Exception as exc:
+        ui.error(f"Unexpected error: {exc}")
+        logger.exception("link_databases failed")
+
+
+# ── Feature: Scheduler ────────────────────────────────────────────────────────
+
+def start_scheduler_mode() -> None:
+    ui.section("Scheduler")
+    db_name = _pick_database("schedule daily logging for")
+    if not db_name:
+        return
+
+    def scheduled_task() -> None:
+        logger.info("Scheduled task triggered | db='%s'", db_name)
+        _log_entry_for(db_name)
+
+    cmd = ui.menu(
+        "How do you want to run it?",
+        {"1": "Foreground — block this terminal", "2": "Background — keep CLI active",
+         "3": "Run once now", "0": "Cancel"},
+    )
+    if cmd == "1":
+        try:
+            run_scheduler(scheduled_task)
+        except SchedulerConfigError as exc:
+            ui.error(str(exc))
+    elif cmd == "2":
+        try:
+            run_in_background(scheduled_task)
+            ui.speak("Scheduler running in the background.")
+        except SchedulerConfigError as exc:
+            ui.error(str(exc))
+    elif cmd == "3":
+        run_now(scheduled_task)
+    elif cmd in ("cancel", "0"):
+        return
+    else:
+        ui.speak("Didn't catch that.")
+
+
+# ── Main loop ─────────────────────────────────────────────────────────────────
+
+_MENU_OPTIONS = {
+    "1": "Create database",
+    "2": "Log entry",
+    "3": "Analyze data",
+    "4": "Link databases",
+    "5": "Start scheduler",
+    "6": "Exit",
+}
+_MENU_ACTIONS = {
+    "1": setup_database,
+    "2": log_entry,
+    "3": run_analysis,
+    "4": link_databases,
+    "5": start_scheduler_mode,
+}
+_ALIASES: dict[str, str] = {
+    "create": "1", "log": "2", "analyse": "3", "analyze": "3",
+    "link": "4", "schedule": "5", "exit": "6", "quit": "6", "bye": "6",
+}
+
+
+def main() -> None:
+    ui.header(APP_NAME, APP_VERSION)
+
+    # Time-aware greeting
+    hour = datetime.now().hour
+    if hour < 12:
+        greeting = "Good morning."
+    elif hour < 17:
+        greeting = "Good afternoon."
+    elif hour < 21:
+        greeting = "Good evening."
+    else:
+        greeting = "Working late? Good night."
+
+    ui.speak(f"{greeting} Chitragupta ready. Say a number or keyword.")
+    print("  💡  Tip: you'll hear a beep before each listening window opens.\n")
+
+    while True:
+        ui.speak("Main menu.")
+        cmd = ui.menu("What would you like to do?", _MENU_OPTIONS)
+        cmd = _ALIASES.get(cmd, cmd)
+
+        if cmd == "6":
+            ui.speak("Goodbye.")
+            logger.info("User exited.")
+            sys.exit(0)
+
+        if cmd not in _MENU_ACTIONS:
+            ui.speak("Didn't catch that. Say a number from 1 to 6, or a keyword like 'log'.")
+            continue
+
+        try:
+            _MENU_ACTIONS[cmd]()
+        except KeyboardInterrupt:
+            ui.speak("Returning to the main menu.")
+            logger.info("KeyboardInterrupt — back to menu.")
+
+
+if __name__ == "__main__":
+    main()
+\n===== API APP =====
+# api/app.py
+
+"""
+Chitragupta API — FastAPI application factory.
+
+API versioning
+    All routers are mounted under /v1.
+    /health is at the root (no version prefix) as a liveness probe.
+    Swagger reflects /v1/... paths throughout.
+
+Startup key enforcement
+    verify_api_key_at_startup() runs in the lifespan context.
+    If API_KEY is not set the process raises RuntimeError and refuses
+    to start.  /health is the only route without auth.
+
+CORS
+    The CORS spec forbids Access-Control-Allow-Origin: * paired with
+    Access-Control-Allow-Credentials: true.  When origins is the wildcard
+    default, allow_credentials is set to False.  Enumerate CORS_ORIGINS
+    in .env to get credentialed cross-origin requests.
+
+Exception handling
+    The global handler logs the full traceback server-side and returns a
+    generic message to callers — no internal paths or schema names leaked.
+
+OpenAPI docs:
+    http://localhost:8000/docs   (Swagger UI)
+    http://localhost:8000/redoc
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from api.dependencies import verify_api_key_at_startup
+from api.routers import databases, entries, voice, analysis, relations, session
+
+logger = logging.getLogger("chitragupta.api")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Startup check — crashes the server if API_KEY is not set.
+    Runs before any request is accepted.
+    """
+    verify_api_key_at_startup()
+    logger.info("Chitragupta API started successfully.")
+    yield
+    logger.info("Chitragupta API shut down.")
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title="Chitragupta API",
+        description=(
+            "REST API for Chitragupta — voice-driven Notion logging system.\n\n"
+            "All endpoints are under **/v1**.\n\n"
+            "**Authentication**: every request (except `/health`) requires "
+            "the `X-API-Key` header matching your `API_KEY` env var.\n\n"
+            "**Background writes**: POST /v1/entries/{name} and "
+            "POST /v1/voice/log-entry return 202 immediately. "
+            "Check /v1/entries/{name}/pending to confirm completion."
+        ),
+        version="1.0.0",
+        lifespan=lifespan,
+        docs_url="/docs",
+        redoc_url="/redoc",
+    )
+
+    # ── CORS ─────────────────────────────────────────────────────────────────
+    raw_origins = os.getenv("CORS_ORIGINS", "*")
+    wildcard    = raw_origins.strip() == "*"
+    origins     = ["*"] if wildcard else [o.strip() for o in raw_origins.split(",")]
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=not wildcard,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # ── Global exception handler ──────────────────────────────────────────────
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        logger.exception("Unhandled exception at %s", request.url)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok":      False,
+                "message": "An internal server error occurred. See server logs.",
+            },
+        )
+
+    # ── /health — no auth, no version prefix ─────────────────────────────────
+    @app.get("/health", tags=["Health"])
+    async def health() -> dict:
+        """Liveness check. No auth required. Returns 200 when server is running."""
+        return {"ok": True, "message": "Chitragupta API is running."}
+
+    # ── Feature routers under /v1 ─────────────────────────────────────────────
+    app.include_router(databases.router, prefix="/v1")
+    app.include_router(entries.router,   prefix="/v1")
+    app.include_router(voice.router,     prefix="/v1")
+    app.include_router(analysis.router,  prefix="/v1")
+    app.include_router(relations.router, prefix="/v1")
+    app.include_router(session.router,   prefix="/v1")
+
+    logger.info("Chitragupta API app created. All routes under /v1.")
+    return app
+\n===== REQUIREMENTS =====
+# Core
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Voice
+openai-whisper>=20231117
+sounddevice>=0.4.6
+numpy>=1.24.0
+
+# NLP
+transformers>=4.38.0
+torch>=2.1.0          # CPU-only is fine; swap for torch+cpu wheel if needed
+
+# Scheduler
+schedule>=1.2.1
+
+# Storage
+# sqlite3 is stdlib — no install needed\n===== SAMPLE ROUTER (analysis) =====
+# api/routers/analysis.py
+
+"""
+Analysis router — run the pattern analyzer over a Notion database.
+
+Endpoints
+---------
+GET /analysis/{database_name}  — fetch + analyze all entries, return insights
+
+AUDIT FIX MIN-5 — database_name path parameter sanitisation
+    The raw path value is passed through _safe_db_name() before reaching
+    any schema or file-system operation, preventing path traversal attacks
+    (e.g. "../../etc/passwd").
+
+AUDIT FIX CRIT-6 (partial) — 500 handler no longer leaks exc detail
+    The previous catch-all raised http_error(500, f"Analysis error: {exc}")
+    which could expose internal stack frames, schema paths, or Notion IDs.
+    The exception is now logged server-side and a generic message is returned
+    to the caller.  The SchemaMissingError (404) path is unchanged as that
+    message is intentionally user-facing.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+
+from fastapi import APIRouter, Depends, status
+
+from api.models import AnalysisResponse
+from api.dependencies import api_key_auth, http_error
+
+from notion.schema_manager import load_schema, SchemaMissingError
+from analysis.pattern_analyzer import analyze_database
+
+logger = logging.getLogger("chitragupta.api.analysis")
+
+router = APIRouter(
+    prefix="/analysis",
+    tags=["Analysis"],
+    dependencies=[Depends(api_key_auth)],
+)
+
+# MIN-5: reuse the same pattern as databases.py
+_DB_NAME_RE = re.compile(r"^[\w\- ]{1,128}$")
+
+
+def _safe_db_name(name: str) -> str:
+    """Validate database_name before any I/O.  Raises 422 on bad input."""
+    name = name.strip()
+    if not name:
+        raise http_error(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                         "database_name must not be empty.")
+    if "\x00" in name or "/" in name or "\\" in name:
+        raise http_error(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                         "database_name contains invalid characters.")
+    if not _DB_NAME_RE.match(name):
+        raise http_error(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "database_name may only contain letters, digits, hyphens, "
+            "underscores, and spaces (max 128 characters).",
+        )
+    return name
+
+
+@router.get("/{database_name}", response_model=AnalysisResponse)
+async def get_analysis(database_name: str) -> AnalysisResponse:
+    """
+    Fetch all entries from a Notion database and return pattern analysis insights.
+
+    Mirrors the CLI 'Analyze Data' feature.  The response contains whatever
+    the pattern_analyzer returns for the given database.
+    """
+    db_name = _safe_db_name(database_name)   # MIN-5
+
+    try:
+        load_schema(db_name)   # validate schema exists before hitting Notion
+    except SchemaMissingError as exc:
+        raise http_error(status.HTTP_404_NOT_FOUND, str(exc))
+
+    try:
+        insights = analyze_database(db_name)
+    except SchemaMissingError as exc:
+        raise http_error(status.HTTP_404_NOT_FOUND, str(exc))
+    except Exception:
+        # CRIT-6: log full traceback server-side, return generic message to caller
+        logger.exception("API: analysis failed for '%s'", db_name)
+        raise http_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Analysis failed. See server logs for details.",
+        )
+
+    logger.info("API: analysis complete | db='%s'", db_name)
+    return AnalysisResponse(database_name=db_name, insights=insights)

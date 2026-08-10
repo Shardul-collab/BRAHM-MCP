@@ -1,0 +1,12 @@
+Phonon calculation
+&INPUTPH
+  prefix    = 'ZnSe_phonon'
+  outdir    = '/tmp/brahm_qe_jobs/c90751dd-928f-4ca2-a090-71857622670f/out'
+  tr2_ph    = 1.00e-14
+  fildyn    = 'dyn'
+  epsil     = .false.
+  lraman    = .false.
+  recover   = .true.
+  ldisp     = .true.
+  nq1 = 4, nq2 = 4, nq3 = 4
+/

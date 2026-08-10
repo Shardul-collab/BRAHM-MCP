@@ -1,0 +1,159 @@
+
+     Program PHONON v.7.5 starts on  5Aug2026 at 22:35:21 
+
+     This program is part of the open-source Quantum ESPRESSO suite
+     for quantum simulation of materials; please cite
+         "P. Giannozzi et al., J. Phys.:Condens. Matter 21 395502 (2009);
+         "P. Giannozzi et al., J. Phys.:Condens. Matter 29 465901 (2017);
+         "P. Giannozzi et al., J. Chem. Phys. 152 154105 (2020);
+          URL http://www.quantum-espresso.org", 
+     in publications or presentations arising from this work. More details at
+     http://www.quantum-espresso.org/quote
+
+     Parallel version (MPI & OpenMP), running on       4 processor cores
+     Number of MPI processes:                 1
+     Threads/MPI process:                     4
+
+     MPI processes distributed on     1 nodes
+     14126 MiB available memory on the printing compute node when the environment starts
+
+     Reading input from q4_fix2.in
+
+     Reading xml data from directory:
+
+     /tmp/brahm_qe_jobs/c90751dd-928f-4ca2-a090-71857622670f/out/ZnSe_phonon.save/
+
+     Subspace diagonalization in iterative solution of the eigenvalue problem:
+     a serial algorithm will be used
+
+     file Zn.pbe-dn-kjpaw_psl.1.0.0.UPF: wavefunction(s)  4S 3D renormalized
+     file Se.pbe-dn-kjpaw_psl.1.0.0.UPF: wavefunction(s)  4S 4P 3D renormalized
+
+     IMPORTANT: XC functional enforced from input :
+     Exchange-correlation= PBE
+                           (   1   4   3   4   0   0   0)
+     Any further DFT definition will be discarded
+     Please, verify this is what you really want
+
+
+     G-vector sticks info
+     --------------------
+     sticks:   dense  smooth     PW     G-vecs:    dense   smooth      PW
+     Sum        1573     793    253                41391    14649    2637
+
+     Using Slab Decomposition
+
+
+     Check: negative core charge=   -0.000002
+     Reading collected, re-writing distributed wavefunctions in /tmp/brahm_qe_jobs/c90751dd-928f-4ca2-a090-71857622670f/out/
+
+     Number and degeneracy of irreps per q-point
+       N         xq(1)         xq(2)         xq(3)   N irreps
+       1   0.353553400   0.000000000   0.000000000       6
+     No degeneracy
+
+     Calculation of q =    0.3535534   0.0000000   0.0000000
+
+     G-vector sticks info
+     --------------------
+     sticks:   dense  smooth     PW     G-vecs:    dense   smooth      PW
+     Sum        1573     793    253                41391    14649    2741
+
+     Using Slab Decomposition
+
+
+     Title: 
+     Phonon calculation                                                         
+
+
+     bravais-lattice index     =            0
+     lattice parameter (alat)  =       7.5750  a.u.
+     unit-cell volume          =     307.3458 (a.u.)^3
+     number of atoms/cell      =            2
+     number of atomic types    =            2
+     number of electrons       =        28.00
+     number of Kohn-Sham states=           14
+     kinetic-energy cutoff     =      50.0000  Ry
+     charge density cutoff     =     400.0000  Ry
+     Exchange-correlation= PBE
+                           (   1   4   3   4   0   0   0)
+
+     celldm(1)=   7.574967  celldm(2)=   0.000000  celldm(3)=   0.000000
+     celldm(4)=   0.000000  celldm(5)=   0.000000  celldm(6)=   0.000000
+
+     crystal axes: (cart. coord. in units of alat)
+               a(1) = (   0.000000   0.707107   0.707107 )  
+               a(2) = (   0.707107   0.000000   0.707107 )  
+               a(3) = (   0.707107   0.707107   0.000000 )  
+
+     reciprocal axes: (cart. coord. in units 2 pi/alat)
+               b(1) = ( -0.707107  0.707107  0.707107 )  
+               b(2) = (  0.707107 -0.707107  0.707107 )  
+               b(3) = (  0.707107  0.707107 -0.707107 )  
+
+
+     PseudoPot. # 1 for Zn read from file:
+     /mnt/d/brahm/agents/vishwakarma/pseudo/Zn.pbe-dn-kjpaw_psl.1.0.0.UPF
+     MD5 check sum: 877bad15deadaf993162987df7215f60
+     Pseudo is Projector augmented-wave + core cor, Zval = 12.0
+     Generated using "atomic" code by A. Dal Corso  v.5.1.2
+     Shape of augmentation charge: PSQ
+     Using radial grid of 1201 points,  6 beta functions with: 
+                l(1) =   0
+                l(2) =   0
+                l(3) =   1
+                l(4) =   1
+                l(5) =   2
+                l(6) =   2
+     Q(r) pseudized with 0 coefficients 
+
+
+     PseudoPot. # 2 for Se read from file:
+     /mnt/d/brahm/agents/vishwakarma/pseudo/Se.pbe-dn-kjpaw_psl.1.0.0.UPF
+     MD5 check sum: 4f650775decad95a929a350dfb100c08
+     Pseudo is Projector augmented-wave + core cor, Zval = 16.0
+     Generated using "atomic" code by A. Dal Corso  v.5.1.2
+     Shape of augmentation charge: PSQ
+     Using radial grid of 1211 points,  6 beta functions with: 
+                l(1) =   0
+                l(2) =   0
+                l(3) =   1
+                l(4) =   1
+                l(5) =   2
+                l(6) =   2
+     Q(r) pseudized with 0 coefficients 
+
+
+     atomic species   valence    mass     pseudopotential
+     Zn               12.00    65.38000     Zn( 1.00)
+     Se               16.00    78.97100     Se( 1.00)
+
+     24 Sym. Ops. (no inversion) found
+
+
+
+   Cartesian axes
+
+     site n.     atom                  positions (alat units)
+         1        Zn     tau(   1) = (   0.0000000   0.0000000   0.0000000  )
+         2        Se     tau(   2) = (   0.3535534   0.3535534   0.3535534  )
+
+     number of k points=   504
+
+     Number of k-points >= 100: set verbosity='high' to print them.
+
+     Dense  grid:    41391 G-vectors     FFT dimensions: (  50,  50,  50)
+
+     Smooth grid:    14649 G-vectors     FFT dimensions: (  36,  36,  36)
+
+     Estimated max dynamical RAM per process >     137.93 MB
+
+     Check: negative core charge=   -0.000002
+
+     The potential is recalculated from file :
+     /tmp/brahm_qe_jobs/c90751dd-928f-4ca2-a090-71857622670f/out/_ph0/ZnSe_phonon.save/charge-density
+
+     Starting wfcs are   18 atomic wfcs
+     Checking if some PAW data can be deallocated... 
+
+     Band Structure Calculation

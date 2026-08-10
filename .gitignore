@@ -1,0 +1,149 @@
+# Virtual environments
+agents/shani/venv/
+agents/chitragupta/.venv/
+agents/ganesh/.venv/
+agents/vidur/.venv/
+agents/vishwakarma/venv/
+**/venv/
+**/.venv/
+
+# Environment / secrets
+.env
+**/.env
+*.env
+
+# Databases
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# FAISS vector indexes
+**/*.faiss
+**/*.faiss.map.npy
+
+# Downloaded papers
+agents/shani/papers/
+
+# QE job outputs
+data/test_qe_jobs/
+agents/vishwakarma/qe/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and snapshots
+*.log
+brahm_snapshot_*.txt
+brahm_audit_report_*.txt
+brahm_audit_summary_*.txt
+
+# Session / temp files
+SESSION_HANDOFF.md
+*.bak
+*.tmp
+nul
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor noise
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Pseudopotential files
+agents/vishwakarma/pseudo/*.UPF
+
+# Development dump files (root level only)
+/ganesh_agent.txt
+/ganesh_api.txt
+/ganesh_executor.txt
+/ganesh_executor2.txt
+/ganesh_files.txt
+/ganesh_load_context.txt
+/ganesh_plan.txt
+/ganesh_schema.txt
+/ganesh_section_graph.txt
+/ganesh_wfconfig.txt
+/llm_mediator.txt
+/shani_core_dump.txt
+/shani_files.txt
+/shani_services_dump.txt
+/shani_structure.txt
+/source_index.txt
+/source_index_clean.txt
+/architecture.txt
+/tree_output.txt
+/download_papers.txt
+/vidur_agent.txt
+/vishwakarma_agent.txt
+/vishwakarma_middle.txt
+/cursorrules
+/start_brahm.bat
+
+# Logs
+logs/
+agents/shani/results/
+
+# Runtime outputs and job directories
+agents/shani/runs/
+agents/vishwakarma/jobs/
+agents/shani/reports/
+
+# Generated documents
+agents/shani/scripts/*.docx
+
+# Runtime state files
+agents/chitragupta/data/schemas/
+agents/chitragupta/data/session_memory.json
+agents/chitragupta/data/write_journal.json
+agents/shani/database/mcp_corrections.jsonl
+
+# Junk files
+*.bak2
+*.bat
+agents/shani/shani_dump.txt
+agents/shani/test_report.json
+agents/shani/input_tmp.in
+agents/shani/New Text Document.txt
+agents/shani/repositories/New Text Document.txt
+agents/shani/tree -L 3.txt
+
+# Dev scripts
+test_injection.py
+brahm_audit.py
+_s5_reset.sh
+_step1.sh
+_step2.sh
+_step3.sh
+_step4.sh
+_step2_mcp.py
+
+# Test files
+agents/chitragupta/system_test_1.py
+agents/chitragupta/system_test_2.py
+agents/shani/test_brahm.py
+
+# Scratch / analysis dumps (v1.1 audit)
+category_audit.json
+gap_checkpoint.jsonl
+graphify-out/
+_unused_candidates/
+_cleanup_2026-07-28_duplicate_incident.py
+probe_prompt_size.py
+
+# Root-level runtime data dir (DFT job state, local dbs)
+/data/
+
+# QE checkpoint/scratch state (regenerable, not results) — wavefunctions,
+# charge density, .save/_ph0 dirs. Only dyn*/status.json/*.out/*.freq/*.dos
+# under zn_se_phonon_results/ are actual results, worth keeping.
+zn_se_phonon_results/*/out/
+agents/vishwakarma/vishwakarma/CRASH

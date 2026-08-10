@@ -1,0 +1,40 @@
+&CONTROL
+  calculation   = 'scf'
+  prefix        = 'ZnSe_phonon'
+  outdir        = './out'
+  pseudo_dir    = '/mnt/d/brahm/agents/vishwakarma/pseudo'
+  verbosity     = 'low'
+  restart_mode  = 'from_scratch'
+/
+
+&SYSTEM
+  ibrav         = 0
+  nat           = 2
+  ntyp          = 2
+  ecutwfc       = 50
+  ecutrho       = 400
+  occupations   = 'fixed'
+/
+
+&ELECTRONS
+  conv_thr        = 1.00e-08
+  mixing_beta     = 0.7
+  electron_maxstep= 200
+/
+
+ATOMIC_SPECIES
+  Zn    65.380000  Zn.pbe-dn-kjpaw_psl.1.0.0.UPF
+  Se    78.971000  Se.pbe-dn-kjpaw_psl.1.0.0.UPF
+
+ATOMIC_POSITIONS {crystal}
+  Zn       0.000000000     0.000000000     0.000000000
+  Se       0.250000000     0.250000000     0.250000000
+
+K_POINTS {automatic}
+  6 6 6  1 1 1
+
+CELL_PARAMETERS {angstrom}
+     0.000000000     2.834437575     2.834437575
+     2.834437575     0.000000000     2.834437575
+     2.834437575     2.834437575     0.000000000
+
