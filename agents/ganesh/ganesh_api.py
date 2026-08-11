@@ -27,12 +27,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from dotenv import load_dotenv
-load_dotenv("/mnt/d/brahm/agents/chitragupta/.env")
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -40,11 +39,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # -- Path setup ----------------------------------------------------------------
-BRAHM_ROOT   = Path("/mnt/d/brahm")
+# BRAHM_ROOT is env-overridable (see brahm/shared/constants.py for the same
+# pattern) -- defaults to the original hardcoded path so nothing changes on
+# the dev machine.
+BRAHM_ROOT   = Path(os.environ.get("BRAHM_ROOT", "/mnt/d/brahm"))
 SHANI_ROOT   = BRAHM_ROOT / "agents/shani"
 GANESH_ROOT  = BRAHM_ROOT / "agents/ganesh"
 
-for p in [str(SHANI_ROOT), str(GANESH_ROOT), str(BRAHM_ROOT / "brahm")]:
+from dotenv import load_dotenv
+load_dotenv(str(BRAHM_ROOT / "agents/chitragupta/.env"))
+
+# IMPORTANT: SHANI_ROOT must resolve BEFORE GANESH_ROOT for the bare
+# `repositories` package name below. GANESH's own agents/ganesh/repositories/
+# directory is empty dead scaffolding (repository.py, stage_repo.py, etc. are
+# all 0 bytes, superseded by the ganesh/tools/*.py pipeline which takes a
+# `repo` argument directly) -- but it still has an __init__.py, so if it
+# resolves first it silently shadows SHANI's real Repository class and
+# `from repositories.repository import Repository` below fails at import
+# time with a real ImportError (confirmed 2026-08-11). Insertion order
+# matters: each insert(0, p) pushes the previous entries down, so the LAST
+# path inserted ends up FIRST in sys.path -- inserting SHANI_ROOT last here
+# guarantees it wins the collision.
+for p in [str(BRAHM_ROOT / "brahm"), str(GANESH_ROOT), str(SHANI_ROOT)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 

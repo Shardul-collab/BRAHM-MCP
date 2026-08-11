@@ -14,11 +14,17 @@ Chitragupta added last (index 0 = wins on conflict).
 import asyncio
 import json
 import logging
+import os
 import sys
 
 # ─── sys.path — DO NOT REORDER ────────────────────────────────────────────────
-_A = "/mnt/d/brahm/agents"
-sys.path.insert(0, "/mnt/d/brahm")                  # brahm package
+# BRAHM_ROOT is env-overridable (see brahm/shared/constants.py for the same
+# pattern) -- defaults to the original hardcoded path so nothing changes on
+# the dev machine. Relative insertion ORDER below is unchanged from the
+# original -- only the root is now parameterized.
+BRAHM_ROOT = os.environ.get("BRAHM_ROOT", "/mnt/d/brahm")
+_A = f"{BRAHM_ROOT}/agents"
+sys.path.insert(0, BRAHM_ROOT)                      # brahm package
 sys.path.insert(0, f"{_A}/shani")                   # SHANI        (lower priority)
 sys.path.insert(0, f"{_A}/chitragupta/analysis")    # analysis module
 sys.path.insert(0, f"{_A}/vidur")                   # VIDUR
@@ -28,7 +34,7 @@ sys.path.insert(0, f"{_A}/chitragupta")             # Chitragupta  (index 0 = wi
 
 # ─── Environment ──────────────────────────────────────────────────────────────
 from dotenv import load_dotenv
-load_dotenv("/mnt/d/brahm/agents/chitragupta/.env")
+load_dotenv(f"{BRAHM_ROOT}/agents/chitragupta/.env")
 
 # ─── MCP SDK ──────────────────────────────────────────────────────────────────
 from mcp.server import Server

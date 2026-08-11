@@ -13,8 +13,8 @@ services plus an external DFT engine. Expect friction.
 ## 1. Clone
 
 ```bash
-git clone https://github.com/Shardul-collab/BRAHM-prototype-1.git
-cd BRAHM-prototype-1
+git clone https://github.com/Shardul-collab/BRAHM-MCP.git
+cd BRAHM-MCP
 ```
 
 By default the codebase assumes it lives at `/mnt/d/brahm`. If you clone
@@ -32,6 +32,20 @@ export BRAHM_ROOT=/path/to/your/clone
 
 Each agent has its own venv and `requirements.txt` — there is currently
 no single install script that sets all of these up for you.
+
+**Disk/GPU footprint warning:** Chitragupta's and SHANI's
+`requirements.txt` pull a full CUDA + OCR + voice-transcription stack
+unconditionally (`torch`, `torchvision`, a dozen `nvidia-*` CUDA wheels,
+`paddleocr`/`paddlex`, `openai-whisper`, `spacy` with a model wheel).
+This is tens of GB, not a lightweight API dependency set, and it's not
+behind an optional extra — even just importing Chitragupta's FastAPI app
+pulls in `voice/whisper_handler.py` at module load time via its `voice`
+router. Confirmed to exhaust disk on a constrained/sandboxed environment
+(GPU-only wheels with no CPU-only alternative reachable if your network
+doesn't allow `download.pytorch.org`). On a normal desktop/workstation
+with tens of GB free this isn't an issue; if you're on a constrained VM
+or container, budget for it or expect to trim these two requirements
+files down to what you actually need.
 
 ```bash
 # SHANI
@@ -58,11 +72,13 @@ python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cd ../..
 
-# Vishwakarma
-cd agents/vishwakarma
-python -m venv .venv
-.venv/bin/pip install -r requirements.txt
-cd ../..
+# Vishwakarma: NO separate venv needed. agents/vishwakarma/requirements.txt
+# does not exist, and agents/vishwakarma/vishwakarma_api.py (which a
+# per-agent venv would imply you're installing for) is dead code -- it
+# imports Notion/config modules that don't exist anywhere in this repo.
+# The real, working Vishwakarma entry point is brahm/agents/vishwakarma.py,
+# used through the MCP tool layer (step 6/8 below), which only needs the
+# root-level venv set up in the next block. Don't create agents/vishwakarma/.venv.
 
 # Root-level MCP server (brahm/, mcp_server.py)
 python -m venv .venv
@@ -79,17 +95,33 @@ Copy the env template and fill in real keys:
 cp agents/chitragupta/.env.example agents/chitragupta/.env
 ```
 
-See the comments in that file for what each key does and which ones are
-actually required for the core pipeline vs. optional legacy features.
 At minimum you need `GROQ_API_KEY` for GANESH and SHANI's S5 extraction
-stage to run.
+stage to run. A few things worth knowing before you fill it in (full
+detail is in the file's own comments):
+
+- **`GROQ_MODEL`**: the current default (`llama-3.3-70b-versatile`) was
+  deprecated by Groq in June 2026 — confirm it still resolves before
+  relying on it; migration targets are `openai/gpt-oss-120b` or
+  `qwen/qwen3.6-27b`.
+- **Required vs. optional is split explicitly** in the file: `GROQ_API_KEY`,
+  `GROQ_MODEL`, `GANESH_LLM`, `NVIDIA_API_KEY` (coordinator only),
+  `MP_API_KEY`, `NLP_MODEL`, `LOG_LEVEL`, and `API_KEY` (Chitragupta's own
+  optional auth toggle) are the ones that matter for the core pipeline.
+  `NOTION_TOKEN`/`NOTION_PAGE_ID`/`NOTION_VERSION`/`WHISPER_MODEL`/
+  `SCHEDULE_TIME` are only for Chitragupta's legacy Notion-journal/voice
+  features — leave them blank unless you specifically want those.
+
+See `agents/chitragupta/SETUP.md` for more on the legacy-feature split.
 
 ---
 
 ## 4. Quantum ESPRESSO (required for Vishwakarma / DFT)
 
-Vishwakarma shells out to real Quantum ESPRESSO binaries — QE itself is
-not bundled in this repo.
+**This is the one step in this entire doc that pip cannot help with.**
+Vishwakarma shells out to real Quantum ESPRESSO binaries, and QE is not
+a Python package — it's a separate Fortran/C scientific computing suite
+with no PyPI wheel. You need `conda`/`mamba` (or a from-source build)
+specifically; there is no `pip install` path around this step.
 
 1. Install QE 7.5 via conda-forge (recommended over your distro's
    package manager — Ubuntu's apt-packaged QE 6.7 is known broken on
@@ -103,10 +135,12 @@ not bundled in this repo.
    ```bash
    export QE_BIN_DIR=/path/to/your/conda/envs/qe/bin
    ```
-3. Pseudopotentials: this repo ships a working set at
-   `agents/vishwakarma/pseudo/` (filenames follow pslibrary's naming
-   convention, PAW/PBE). If you need others, `QE_PSEUDO` controls the
-   lookup directory.
+3. Pseudopotentials: despite earlier notes claiming this repo ships a
+   working set, `agents/vishwakarma/pseudo/` does **not** exist in the
+   repo (confirmed absent) -- only `pseudo_manager.py`, the code that
+   looks them up, is present. You'll need to source your own `.UPF`
+   pseudopotential files (e.g. from pslibrary or SSSP) and point
+   `QE_PSEUDO` at that directory.
 4. MPI note: if `mpirun` fails with a PRRTE "not enough slots" error
    under WSL2 even though your machine has enough cores, this is a
    known hwloc slot-detection issue — Vishwakarma's `runner.py` already

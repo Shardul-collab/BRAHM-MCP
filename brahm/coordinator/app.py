@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -40,8 +41,9 @@ from pydantic import BaseModel
 # ─── sys.path — same ordering rule as mcp_server.py. DO NOT REORDER ──────────
 # Chitragupta MUST be index 0 (its own core/ package must not be shadowed
 # by SHANI's core/). Copied verbatim from mcp_server.py's documented order.
-_A = "/mnt/d/brahm/agents"
-sys.path.insert(0, "/mnt/d/brahm")
+BRAHM_ROOT = os.environ.get("BRAHM_ROOT", "/mnt/d/brahm")
+_A = f"{BRAHM_ROOT}/agents"
+sys.path.insert(0, BRAHM_ROOT)
 sys.path.insert(0, f"{_A}/shani")
 sys.path.insert(0, f"{_A}/chitragupta/analysis")
 sys.path.insert(0, f"{_A}/vidur")
@@ -50,7 +52,7 @@ sys.path.insert(0, f"{_A}/ganesh")
 sys.path.insert(0, f"{_A}/chitragupta")
 
 from dotenv import load_dotenv
-load_dotenv("/mnt/d/brahm/agents/chitragupta/.env")
+load_dotenv(f"{BRAHM_ROOT}/agents/chitragupta/.env")
 
 from brahm.brahm_registry import registry
 
