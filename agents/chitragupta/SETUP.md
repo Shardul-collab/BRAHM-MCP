@@ -74,10 +74,22 @@ voice-logging endpoints:
   your integration.
 - **Voice input**: uses Whisper, which needs FFmpeg installed
   (`sudo apt install ffmpeg` on Ubuntu/WSL2). Set `WHISPER_MODEL` in
-  `.env` (default `base`).
+  `.env` (default `base`). Gated behind `ENABLE_VOICE_FEATURES=true`
+  (default false) as of v1.2.0 — leave it unset and the whisper/torch
+  import cost is skipped entirely.
 
-If you don't need these, leave the relevant `.env` fields blank — the
-core BRAHM pipeline does not depend on them.
+**`NOTION_TOKEN` is the one exception to "leave blank if you don't need
+it" — confirmed 2026-08-12 to be a hard requirement, not optional.**
+`api/routers/databases.py` (a core route, not gated the way `voice.py`
+is) imports `notion.schema_manager` at module load time, which imports
+`config.settings`, which raises `EnvironmentError` if `NOTION_TOKEN` is
+unset — so the whole API process refuses to start without it, even if
+you never touch a Notion endpoint. This contradicts the "leave blank"
+advice this file used to give. Not fixed in code (a real design
+decision — relax the check, or lazy-import `databases.py`'s Notion
+dependency the way `voice.py` was made lazy — left open, not decided).
+Set a real token or any non-empty placeholder string to get past the
+startup check.
 
 ---
 
@@ -90,3 +102,4 @@ core BRAHM pipeline does not depend on them.
 | Port conflict with SHANI | Chitragupta must run on `--port 8003`, not the module default of 8000 |
 | `ffmpeg not found` (voice endpoints only) | Install FFmpeg and ensure it's on `PATH` |
 | Notion endpoints failing | Confirm the integration has been added to the target page (`···` → Add connections), not just that the token is set |
+| Server won't start: `NOTION_TOKEN is not set` | Not optional despite appearances — see the Notion note above. Set a real token or any placeholder string. |

@@ -39,11 +39,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api.dependencies import verify_api_key_at_startup
-from api.routers import databases, entries, voice, analysis, relations, session, context, store
+from api.routers import databases, entries, analysis, relations, session, context, store
 from brahm_db.api import router as brahm_db_router
 from brahm_db.schema import init_db as init_brahm_db
 
 logger = logging.getLogger("chitragupta.api")
+
+# Voice router pulls in openai-whisper + torch at import time
+# (api/routers/voice.py -> voice/whisper_handler.py). That's tens of GB
+# and is only needed for the legacy Notion voice-logging feature, not the
+# core SHANI -> GANESH pipeline. Gate the import behind an env var so a
+# container that never uses voice features doesn't pay for it just to
+# serve /health. Default is disabled (matches .env.example's framing of
+# voice/Notion as opt-in legacy features).
+ENABLE_VOICE_FEATURES = os.getenv("ENABLE_VOICE_FEATURES", "false").strip().lower() in ("1", "true", "yes")
+if ENABLE_VOICE_FEATURES:
+    from api.routers import voice
+    logger.info("Voice features enabled — whisper/torch loaded.")
+else:
+    voice = None
+    logger.info("Voice features disabled (ENABLE_VOICE_FEATURES not set) — whisper/torch not imported.")
 
 
 @asynccontextmanager
@@ -116,7 +131,8 @@ def create_app() -> FastAPI:
     # ── Feature routers under /v1 ─────────────────────────────────────────────
     app.include_router(databases.router, prefix="/v1")
     app.include_router(entries.router,   prefix="/v1")
-    app.include_router(voice.router,     prefix="/v1")
+    if ENABLE_VOICE_FEATURES:
+        app.include_router(voice.router, prefix="/v1")
     app.include_router(analysis.router,  prefix="/v1")
     app.include_router(relations.router, prefix="/v1")
     app.include_router(session.router,   prefix="/v1")

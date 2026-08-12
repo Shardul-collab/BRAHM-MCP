@@ -1,0 +1,109 @@
+####
+# BRAHM Docker Compose
+#
+# Two profiles:
+#   docker compose --profile full up         -- SHANI + Chitragupta + GANESH
+#                                                 + Vishwakarma (everything)
+#   docker compose --profile vishwakarma up  -- just Vishwakarma/QE, for a
+#                                                 researcher who only wants
+#                                                 DFT automation and doesn't
+#                                                 want the SHANI/Chitragupta
+#                                                 CUDA+OCR weight.
+#
+# Before first run:
+#   cp agents/chitragupta/.env.example agents/chitragupta/.env
+#   # fill in GROQ_API_KEY at minimum
+#
+# Vishwakarma has no HTTP endpoint (mcp_server.py is a stdio MCP server) --
+# see docker/vishwakarma.Dockerfile and SETUP.md for how Claude Desktop
+# talks to it via `docker exec -i`.
+####
+
+services:
+
+  shani:
+    build:
+      context: .
+      dockerfile: docker/shani.Dockerfile
+    image: brahm-shani:v1.2.0
+    container_name: brahm-shani
+    profiles: ["full"]
+    ports:
+      - "8000:8000"
+    env_file:
+      - agents/chitragupta/.env
+    environment:
+      BRAHM_ROOT: /app
+      QE_BIN_DIR: ${QE_BIN_DIR:-}
+    volumes:
+      - shani_db:/app/agents/shani/database
+    networks: [brahm-net]
+    restart: unless-stopped
+
+  chitragupta:
+    build:
+      context: .
+      dockerfile: docker/chitragupta.Dockerfile
+    image: brahm-chitragupta:v1.2.0
+    container_name: brahm-chitragupta
+    profiles: ["full"]
+    ports:
+      - "8003:8003"
+    env_file:
+      - agents/chitragupta/.env
+    environment:
+      BRAHM_ROOT: /app
+      ENABLE_VOICE_FEATURES: ${ENABLE_VOICE_FEATURES:-false}
+    volumes:
+      - chitragupta_db:/app/agents/chitragupta/database
+      - chitragupta_data:/app/agents/chitragupta/data
+    networks: [brahm-net]
+    restart: unless-stopped
+
+  ganesh:
+    build:
+      context: .
+      dockerfile: docker/ganesh.Dockerfile
+    image: brahm-ganesh:v1.2.0
+    container_name: brahm-ganesh
+    profiles: ["full"]
+    ports:
+      - "8001:8001"
+    env_file:
+      - agents/chitragupta/.env
+    environment:
+      BRAHM_ROOT: /app
+    volumes:
+      # GANESH reads/writes SHANI's research_workflow.db directly
+      # (ganesh_api.py: DB_PATH = SHANI_ROOT/database/research_workflow.db)
+      # -- must be the SAME named volume as the shani service.
+      - shani_db:/app/agents/shani/database
+    depends_on:
+      - shani
+    networks: [brahm-net]
+    restart: unless-stopped
+
+  vishwakarma:
+    build:
+      context: .
+      dockerfile: docker/vishwakarma.Dockerfile
+    image: brahm-vishwakarma:v1.2.0
+    container_name: brahm-vishwakarma
+    profiles: ["full", "vishwakarma"]
+    volumes:
+      - qe_jobs:/data/qe_jobs
+      - ${QE_PSEUDO_HOST_DIR:-./agents/vishwakarma/pseudo}:/data/pseudo:ro
+    networks: [brahm-net]
+    restart: unless-stopped
+    # No ports: exposed -- see header comment. Claude Desktop / manual
+    # smoke tests reach this via `docker exec -i brahm-vishwakarma ...`.
+
+volumes:
+  shani_db:
+  chitragupta_db:
+  chitragupta_data:
+  qe_jobs:
+
+networks:
+  brahm-net:
+    driver: bridge

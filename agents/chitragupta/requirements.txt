@@ -2,6 +2,20 @@
 python-dotenv>=1.0.0
 requests>=2.31.0
 
+# API server
+# CONFIRMED MISSING 2026-08-12: fastapi/uvicorn/pydantic were absent from
+# this file entirely, despite api_server.py/api/app.py needing all three to
+# run at all ("No module named uvicorn" on a real install from this exact
+# file, both via Docker and -- since this file is what SETUP.md's manual
+# venv path also installs from -- via the documented manual setup too).
+# python-multipart is needed for FastAPI's UploadFile handling, used by the
+# optional voice router (api/routers/voice.py) when ENABLE_VOICE_FEATURES
+# is set.
+fastapi>=0.110.0
+uvicorn>=0.27.0
+pydantic>=2.0.0
+python-multipart>=0.0.9
+
 # Voice
 openai-whisper>=20231117
 sounddevice>=0.4.6

@@ -1,0 +1,52 @@
+# Keeps build context (and image layers) from dragging in venvs, DBs,
+# vector indices, and generated artifacts that either don't belong in an
+# image (secrets, local state) or are meant to come from bind mounts /
+# named volumes instead (databases, QE job output, pseudopotentials).
+
+**/venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/node_modules/
+
+# Databases and vector indices -- these are runtime state, mounted as
+# volumes in docker-compose.yml, not baked into images.
+**/*.db
+**/*.faiss
+**/*.faiss.map.npy
+**/*.sqlite
+**/*.sqlite3
+
+# Real secrets -- .env.example is fine and IS copied where needed, but the
+# real .env must never end up in an image layer.
+**/.env
+!**/.env.example
+
+# QE job output / test artifacts
+data/test_qe_jobs/
+data/outputs/
+agents/vishwakarma/pseudo/
+
+# Generated reports, dumps, scratch files scattered at repo root and in
+# agent dirs (audit reports, tree dumps, .bak files, stray docs) -- none
+# of these are needed inside a container.
+*.bak
+*_dump.txt
+*_report*.txt
+*_snapshot*.txt
+tree*.txt
+*.docx
+New Text Document.txt
+nul
+
+# VCS / IDE / docker itself
+.git/
+.gitignore
+docker/
+docker-compose.yml
+Dockerfile*
+
+# Dashboard node build output, if present
+brahm/dashboard/node_modules/
+brahm/dashboard/dist/
