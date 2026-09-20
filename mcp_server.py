@@ -19,10 +19,16 @@ import sys
 
 # ─── sys.path — DO NOT REORDER ────────────────────────────────────────────────
 # BRAHM_ROOT is env-overridable (see brahm/shared/constants.py for the same
-# pattern) -- defaults to the original hardcoded path so nothing changes on
-# the dev machine. Relative insertion ORDER below is unchanged from the
-# original -- only the root is now parameterized.
-BRAHM_ROOT = os.environ.get("BRAHM_ROOT", "/mnt/d/brahm")
+# pattern). Relative insertion ORDER below is unchanged from the original --
+# only the root is parameterized.
+#
+# 2026-09-20: the fallback was the literal "/mnt/d/brahm". This file is the
+# entry point that builds sys.path for all five agents, so without BRAHM_ROOT
+# exported every one of those six inserts pointed into a directory that does
+# not exist -- the server started, registered nothing that needed an agent
+# package, and the failure looked like missing tools rather than a bad path.
+# __file__ is at the repo root, so it is the root, on every host.
+BRAHM_ROOT = os.environ.get("BRAHM_ROOT") or os.path.dirname(os.path.abspath(__file__))
 _A = f"{BRAHM_ROOT}/agents"
 sys.path.insert(0, BRAHM_ROOT)                      # brahm package
 sys.path.insert(0, f"{_A}/shani")                   # SHANI        (lower priority)

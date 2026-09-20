@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from pathlib import Path
 import sys
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -41,7 +42,13 @@ from pydantic import BaseModel
 # ─── sys.path — same ordering rule as mcp_server.py. DO NOT REORDER ──────────
 # Chitragupta MUST be index 0 (its own core/ package must not be shadowed
 # by SHANI's core/). Copied verbatim from mcp_server.py's documented order.
-BRAHM_ROOT = os.environ.get("BRAHM_ROOT", "/mnt/d/brahm")
+# 2026-09-20: fallback was the literal "/mnt/d/brahm" -- the last BRAHM_ROOT
+# instance of that pattern. This file is <root>/brahm/coordinator/app.py, so
+# parents[2] is the root on every host with no environment set.
+# (The QE_BIN_DIR / QE_PSEUDO_DIR / VISHWAKARMA_WORKDIR defaults elsewhere are
+# deliberately NOT changed: those name binaries and pseudopotential libraries
+# outside the repo, which no repo-relative path can derive.)
+BRAHM_ROOT = os.environ.get("BRAHM_ROOT") or str(Path(__file__).resolve().parents[2])
 _A = f"{BRAHM_ROOT}/agents"
 sys.path.insert(0, BRAHM_ROOT)
 sys.path.insert(0, f"{_A}/shani")

@@ -6,13 +6,25 @@ All agents write here through the repository layer.
 Run directly to initialise: python schema.py
 """
 
+import os
 import sqlite3
 import logging
 from pathlib import Path
 
 log = logging.getLogger("brahm_db.schema")
 
-BRAHM_DB_PATH = Path("/mnt/d/brahm/data/brahm.db")
+# BRAHM_ROOT-relative, matching brahm/shared/constants.py. This was hardcoded
+# to "/mnt/d/brahm/data/brahm.db" until 2026-09-10 and is the most damaging of
+# the four such literals Chitragupta still carried, because get_connection()
+# does `BRAHM_DB_PATH.parent.mkdir(parents=True, exist_ok=True)` — on a host
+# where that path does not exist it does not fail, it CREATES an empty
+# /mnt/d/brahm/data/ and a fresh empty brahm.db, then serves happily from it.
+# Projects, DFT results and papers would all appear to save while the real
+# database sat untouched.
+# 2026-09-20: the fallback below was `/mnt/d/brahm` -- see chit_paths.py.
+# Resolved from this file's own location instead, so it is right with no
+# environment set at all.
+from chit_paths import BRAHM_DB_PATH  # noqa: E402
 
 
 def get_connection() -> sqlite3.Connection:

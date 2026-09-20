@@ -7,7 +7,22 @@ Single source of truth for all BRAHM configuration.
 from pathlib import Path
 import os
 
-BRAHM_ROOT       = Path(os.environ.get("BRAHM_ROOT", "/mnt/d/brahm"))
+# 2026-09-20: the fallback here was the literal "/mnt/d/brahm" -- a WSL2 path
+# from the original dev box. Every path in BRAHM hangs off this one line, so
+# on any other host the whole package was correct only because the MCP server
+# process happened to have BRAHM_ROOT exported. Anything that imported it
+# without that -- `python api_server.py`, a test run, a script -- silently
+# resolved every agent root, venv and .env under a directory that does not
+# exist here. It was found by a 401 from Chitragupta: _chit_api_key() reads
+# the key out of ENV_FILE, ENV_FILE was /mnt/d/brahm/..., the open() failed,
+# and the helper returned "" -- so the header went out empty and the save was
+# rejected, with the *reason* only visible because the DFT/instrument save
+# helpers had just been taught to report their errors.
+#
+# This file is <root>/brahm/shared/constants.py, so parents[2] IS the root, on
+# every host, with no environment at all. BRAHM_ROOT still wins when set, for
+# the container (BRAHM_ROOT=/app) and for tests pointed at a fixture tree.
+BRAHM_ROOT       = Path(os.environ.get("BRAHM_ROOT") or Path(__file__).resolve().parents[2])
 
 SHANI_ROOT       = BRAHM_ROOT / "agents/shani"
 CHITRAGUPTA_ROOT = BRAHM_ROOT / "agents/chitragupta"

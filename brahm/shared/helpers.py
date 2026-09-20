@@ -9,7 +9,8 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
-from brahm.shared.constants import DB_PATH, AUDIT_LOG_PATH
+from brahm.shared.constants import (DB_PATH, AUDIT_LOG_PATH, SHANI_ROOT,
+                                    CHITRAGUPTA_ROOT)
 
 log = logging.getLogger("mcp.brahm")
 
@@ -22,10 +23,16 @@ def _err(msg: str, detail: str = "") -> dict:
 
 
 def _repo():
+    # 2026-09-19: this was a bare "/mnt/d/brahm/agents/shani/repositories/
+    # repository.py" with no BRAHM_ROOT fallback - the one /mnt/d literal in the
+    # repo that could not be overridden by the environment. Both portability
+    # passes (v1.1.1 and 2026-09-09) searched agents/ and never looked in
+    # brahm/shared/, so 12 registered MCP tools raised FileNotFoundError on any
+    # machine that is not the original WSL box.
     import importlib.util, sys
     _spec = importlib.util.spec_from_file_location(
         "shani_repository",
-        "/mnt/d/brahm/agents/shani/repositories/repository.py"
+        str(SHANI_ROOT / "repositories/repository.py")
     )
     _mod = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_mod)
@@ -35,7 +42,7 @@ def _analyzer():
     import importlib.util
     _spec = importlib.util.spec_from_file_location(
         "research_analyzer",
-        "/mnt/d/brahm/agents/chitragupta/analysis/research_analyzer.py"
+        str(CHITRAGUPTA_ROOT / "analysis/research_analyzer.py")
     )
     _mod = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_mod)

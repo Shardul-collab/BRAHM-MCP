@@ -17,7 +17,11 @@ from brahm.shared.helpers import _ok, _err, _repo
 
 
 def _default_gap_checkpoint_path(workflow_id: int) -> str:
-    return f"/mnt/d/brahm/data/gap_checkpoints/workflow_{workflow_id}.jsonl"
+    # 2026-09-20: was a bare "/mnt/d/brahm/..." with no BRAHM_ROOT fallback --
+    # the sixth such literal, and the one that sends gap-phase checkpoints to a
+    # path that does not exist on this machine.
+    from brahm.shared.constants import BRAHM_ROOT
+    return str(BRAHM_ROOT / "data/gap_checkpoints" / f"workflow_{workflow_id}.jsonl")
 
 
 @brahm_tool(
@@ -36,7 +40,7 @@ def _default_gap_checkpoint_path(workflow_id: int) -> str:
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_id": {"type": "integer"},
+            "workflow_id": {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."},
             "checkpoint_path": {
                 "type": "string",
                 "description": "Defaults to a per-workflow path under data/gap_checkpoints/ if omitted.",
@@ -88,7 +92,7 @@ async def research_run_gap_map_phase(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_id": {"type": "integer"},
+            "workflow_id": {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."},
             "checkpoint_path": {"type": "string"},
             "project_id": {
                 "type": "integer",
@@ -226,7 +230,8 @@ async def research_knowledge_summary(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "keywords":  {"type": "array", "items": {"type": "string"}},
+            "keywords":  {"type": "array", "items": {"type": "string"},
+                          "description": "Search terms matched against paper titles and abstracts, e.g. ['In2Se3','ferroelectric']."},
             "search_in": {
                 "type": "array",
                 "items": {"type": "string", "enum": ["title", "abstract", "content"]},

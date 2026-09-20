@@ -15,7 +15,9 @@ Never writes to SHANI's DB.
 from __future__ import annotations
 
 import logging
+import os
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -32,7 +34,14 @@ from api.models import (
 
 logger = logging.getLogger("chitragupta.api.context")
 
-SHANI_DB = "/mnt/d/brahm/agents/shani/database/research_workflow.db"
+# BRAHM_ROOT-relative, matching brahm/shared/constants.py. Hardcoded to the
+# WSL2 dev path until 2026-09-10; the v1.1.1 path-portability pass missed
+# Chitragupta. Opened read-only below, so on a wrong path this fails with
+# "unable to open database file" rather than silently creating an empty DB.
+# 2026-09-20: the fallback below was `/mnt/d/brahm` -- see chit_paths.py.
+from chit_paths import SHANI_DB_PATH  # noqa: E402
+
+SHANI_DB = str(SHANI_DB_PATH)
 READY_STATUSES = ("knowledge_ready", "completed")
 
 router = APIRouter(
