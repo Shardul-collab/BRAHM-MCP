@@ -147,3 +147,26 @@ probe_prompt_size.py
 # under zn_se_phonon_results/ are actual results, worth keeping.
 zn_se_phonon_results/*/out/
 agents/vishwakarma/vishwakarma/CRASH
+
+# Model weights fetched at setup, not source (DocLayout-YOLO DocStructBench,
+# ~41MB). S4A resolves <repo>/models/ automatically; re-fetch with:
+#   curl -L -o models/doclayout_yolo_docstructbench_imgsz1024.pt \
+#     https://huggingface.co/juliozhao/DocLayout-YOLO-DocStructBench/resolve/main/doclayout_yolo_docstructbench_imgsz1024.pt
+/models/*.pt
+
+# Never let a copy of a secrets file become committable. A .env.bak created
+# while editing a token on 2026-09-20 was untracked-but-not-ignored, so
+# `git add -A` would have committed it.
+*.env.bak*
+.env.*
+**/.env.*
+
+# Obsidian workspace config that ended up in the repo root (the vault itself
+# lives outside it). Editor state, not source. Found 2026-09-20 while checking
+# what `git add -A` would sweep in -- same class as the .env.bak above.
+.obsidian/
+
+# "Claude outputs/" is NOT ignored on purpose: it holds one real vault note
+# (2026-09-11-trl5-groundwork.md) whose home should be the vault, not the repo
+# root. Left untracked and visible so the move is a decision, not a silent
+# commit.

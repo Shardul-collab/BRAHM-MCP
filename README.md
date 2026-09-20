@@ -30,7 +30,7 @@ Literature Discovery → Knowledge Extraction → Gap Analysis → Simulation �
 | **SHANI** | Literature pipeline — discovery, download, content extraction, knowledge extraction |
 | **Chitragupta** | Knowledge custodian — context management, research memory, database access |
 | **GANESH** | Document synthesis — literature reviews, research reports, manuscript drafts |
-| **VIDUR** | Characterisation analysis — XRD, Raman, UV-Vis, SEM/EDS interpretation |
+| **VIDUR** | Characterisation data preparation — reads instrument files (XRD, Raman, UV-Vis, SEM/EDS, I-V/I-T), identifies technique and sample naming, and emits plot-ready CSVs. Normalisation yes, filtering never. Interpretation is intended future scope, not current behaviour |
 | **Vishwakarma** | Computational engine — structure generation, DFT via Quantum ESPRESSO |
 
 ---
@@ -85,7 +85,26 @@ Literature Discovery → Knowledge Extraction → Gap Analysis → Simulation �
 
 ## Status
 
-Active development. Core pipeline (S1→S5) is operational. Document generation (GANESH G1→G5) is functional. S5.5 finding reconstruction and full grounded document generation are in progress.
+Active development. Core pipeline (S1→S5) is operational. Document generation (GANESH G1→G5) is
+functional. S5.5 finding reconstruction and full grounded document generation are in progress.
+
+### Known limits
+
+Stated plainly, so the system is not read as further along than it is.
+
+- **Grounded writing has not met its bar.** The target is ≥90% of cited claims supported by the
+  cited source, with 0 fabricated. The first 50-claim audit measured **86% supported, 0 fabricated** —
+  the fabrication half is met, the support half is not. The remaining failures are correctly-copied
+  numbers attached to the wrong subject, which no threshold change reaches.
+- **31 of the 64 MCP tools have never been exercised** end to end. They are the destructive,
+  long-running and costly ones; there is no safe harness for them yet.
+- **Chitragupta has two persistence layers** with overlapping purpose — `brahm_db/` → `brahm.db`
+  (live) and `api/routers/store.py` → `brahm_knowledge.db` (unused). Consolidation is pending.
+- **VIDUR does not yet parse XPS, gas sensing or PL**, and has no peak finding, phase ID, Scherrer
+  or Tauc. Unsupported techniques are named explicitly so they surface as a question rather than a
+  confident wrong guess.
+- Quantum ESPRESSO binaries and pseudopotentials live outside the repo; `QE_BIN_DIR`,
+  `QE_PSEUDO_DIR` and `VISHWAKARMA_WORKDIR` must be set for Vishwakarma to run.
 
 ---
 
@@ -97,7 +116,7 @@ brahm/
 │   ├── shani/          # Literature pipeline
 │   ├── chitragupta/    # Knowledge custodian
 │   ├── ganesh/         # Document generation
-│   ├── vidur/          # Characterisation analysis
+│   ├── vidur/          # Characterisation data preparation
 │   └── vishwakarma/    # DFT computation
 ├── brahm/              # Shared registry and utilities
 ├── brahm_dashboard.py  # Service health and control UI
