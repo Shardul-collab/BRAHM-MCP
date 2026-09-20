@@ -24,7 +24,7 @@ from brahm.shared.constants import (
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_id":  {"type": "integer"},
+            "workflow_id":  {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."},
             "issue_types":  {
                 "type": "array",
                 "items": {"type": "string",
@@ -109,7 +109,7 @@ async def db_list_suspect_papers(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "paper_id": {"type": "integer"},
+            "paper_id": {"type": "integer", "description": "Paper id within the workflow, from shani_get_papers."},
             "fields":   {
                 "type": "object",
                 "description": "Fields to update (title, doi, abstract, pdf_url, status, ...)",
@@ -168,7 +168,7 @@ async def db_update_paper(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_id": {"type": "integer"},
+            "workflow_id": {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."},
             "fields": {
                 "type": "object",
                 "description": "Fields: material, focus, structure, method, properties, characterization, domain",
@@ -226,10 +226,10 @@ async def db_update_workflow_config(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_id":    {"type": "integer"},
-            "field":          {"type": "string"},
-            "match_pattern":  {"type": "string"},
-            "replacement":    {"type": "string"},
+            "workflow_id":    {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."},
+            "field":          {"type": "string", "description": "Column of the Paper table to rewrite, e.g. 'title' or 'doi'."},
+            "match_pattern":  {"type": "string", "description": "Substring or pattern identifying which values to rewrite. DESTRUCTIVE: every matching row in the workflow is changed."},
+            "replacement":    {"type": "string", "description": "Value that replaces the matched text. Check db_list_suspect_papers first to see what will be hit."},
             "dry_run":        {"type": "boolean", "default": True},
         },
         "required": ["workflow_id", "field", "match_pattern", "replacement"],

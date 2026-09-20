@@ -683,6 +683,12 @@ def _run_vision_pipeline(paper_id: int, filepath: str) -> dict | None:
 # MAIN ENTRY POINT  (orchestrator contract — unchanged)
 # ============================================================
 
+def _clear_previous_extraction(repo, paper_id: int) -> None:
+    with repo.transaction() as cur:
+        for table in ("PaperContent", "PaperEquation", "PaperFigure", "PaperTable"):
+            cur.execute(f"DELETE FROM {table} WHERE paper_id = ?", (paper_id,))
+
+
 def extract_paper_content(repo, workflow_id: int, **kwargs) -> dict:
     """
     S4 entry point called by ToolExecutor.
@@ -810,6 +816,14 @@ def extract_paper_content(repo, workflow_id: int, **kwargs) -> dict:
                     print(f"[S4] Table extraction failed: {e}")
 
                 doc.close()
+
+            # ── Replace, don't append (2026-09-11) ────────
+            # S4 used to INSERT on every run. Re-running it on a paper (as
+            # recovery after the 09-10 normalisation bug requires) duplicated
+            # every section, and normalisation's merge step then concatenated
+            # the copies. Cleared only here, after this run has produced its
+            # own output, so a failed re-run leaves the previous content alone.
+            _clear_previous_extraction(repo, paper_id)
 
             # ── Write sections to DB ──────────────────────
             has_any = False

@@ -15,9 +15,13 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime
+import os
 from pathlib import Path
 
-GANESH_ROOT = Path("/mnt/d/brahm/agents/ganesh")
+# Was hardcoded to a WSL path (/mnt/d/brahm/...) until 2026-09-11 - the v1.1.1
+# path-portability pass never reached GANESH's tools. BRAHM_ROOT wins if set.
+_BRAHM_ROOT = Path(os.environ["BRAHM_ROOT"]) if os.environ.get("BRAHM_ROOT") else Path(__file__).resolve().parents[4]
+GANESH_ROOT = _BRAHM_ROOT / "agents" / "ganesh"
 if str(GANESH_ROOT) not in sys.path:
     sys.path.insert(0, str(GANESH_ROOT))
 
@@ -103,14 +107,20 @@ def execute_section_graph(repo, document_id: int, config: dict) -> dict:
                     print(f"[G3] ⚠ Force-approved (max iterations): {section.section_name}")
 
             except Exception as exc:
+                # Was: graph.mark_approved() "so the graph can continue" - which
+                # put a section with no draft into the final document as if it
+                # had been approved (parked since July as "G3 partial-failure").
+                # Now it is marked FAILED: dependents still unlock, the document
+                # is flagged, and integration lists it as missing.
                 print(f"[G3] ✗ Section failed: {section.section_name} — {exc}")
-                # Force-approve so graph can continue — document gets quality flag
-                graph.mark_approved(section.section_name)
+                graph.mark_failed(section.section_name)
                 failed_sections.append(section.section_name)
 
     # ── Update document status ────────────────────────────────────────────────
     now          = datetime.utcnow().isoformat()
-    quality_flag = "below_threshold" if failed_sections else None
+    errored      = graph.get_failed_sections()
+    quality_flag = ("sections_failed" if errored else
+                    "below_threshold" if failed_sections else None)
 
     with repo.transaction() as cursor:
         cursor.execute(

@@ -38,7 +38,7 @@ ANALYSIS_SCHEMA  = [
     input_schema={
         "type": "object",
         "properties": {
-            "category":    {"type": "string", "enum": ["all"] + KNOWLEDGE_CATS},
+            "category":    {"type": "string", "enum": ["all"] + KNOWLEDGE_CATS, "description": "Knowledge category to count values within, e.g. 'characterization'. Must be one of the configured KNOWLEDGE_CATS."},
             "workflow_id": {"type": "integer"},
             "top_n":       {"type": "integer", "default": 20},
             "min_count":   {"type": "integer", "default": 2},
@@ -63,7 +63,7 @@ async def analysis_technique_frequency(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "primary_category":   {"type": "string", "enum": KNOWLEDGE_CATS},
+            "primary_category":   {"type": "string", "enum": KNOWLEDGE_CATS, "description": "Knowledge category whose values are tracked over publication year, e.g. 'synthesis_method'."},
             "secondary_category": {"type": "string", "enum": KNOWLEDGE_CATS},
             "filter_value":       {"type": "string"},
             "workflow_id":        {"type": "integer"},
@@ -90,8 +90,8 @@ async def analysis_trend_report(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "category_a":     {"type": "string", "enum": KNOWLEDGE_CATS},
-            "category_b":     {"type": "string", "enum": KNOWLEDGE_CATS},
+            "category_a":     {"type": "string", "enum": KNOWLEDGE_CATS, "description": "First knowledge category of the pair to cross-tabulate, e.g. 'material'. Must be one of the configured KNOWLEDGE_CATS."},
+            "category_b":     {"type": "string", "enum": KNOWLEDGE_CATS, "description": "Second knowledge category, e.g. 'synthesis_method'. The tool reports A x B combinations with few or no papers."},
             "known_values_a": {"type": "array", "items": {"type": "string"}},
             "known_values_b": {"type": "array", "items": {"type": "string"}},
             "gap_threshold":  {"type": "integer", "default": 2},
@@ -117,7 +117,8 @@ async def analysis_find_gaps(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "parameter_keywords": {"type": "array", "items": {"type": "string"}},
+            "parameter_keywords": {"type": "array", "items": {"type": "string"},
+                                   "description": "Words identifying the parameter to distribute, e.g. ['growth temperature','substrate temperature']. Matched against knowledge row values."},
             "workflow_id":        {"type": "integer"},
             "extract_numbers":    {"type": "boolean", "default": True},
             "group_by_material":  {"type": "boolean", "default": True},
@@ -139,7 +140,8 @@ async def analysis_parameter_distribution(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_ids": {"type": "array", "items": {"type": "integer"}, "minItems": 2},
+            "workflow_ids": {"type": "array", "items": {"type": "integer"}, "minItems": 2,
+                             "description": "Two or more SHANI workflow ids to compare. One id is rejected — there is nothing to compare it with."},
             "compare_by":   {"type": "string",
                              "enum": ["papers", "techniques", "materials", "knowledge"],
                              "default": "knowledge"},
@@ -163,13 +165,14 @@ async def analysis_workflow_comparison(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "name":         {"type": "string"},
+            "name":         {"type": "string", "description": "Title for the Notion page this analysis will be written to."},
             "type":         {"type": "string",
-                             "enum": ["Trend", "Gap", "Parameter", "Comparison", "Frequency"]},
-            "key_finding":  {"type": "string"},
+                             "enum": ["Trend", "Gap", "Parameter", "Comparison", "Frequency"],
+                             "description": "Which kind of analysis this page records."},
+            "key_finding":  {"type": "string", "description": "One-sentence headline result, written into the Notion page body."},
             "results":      {"type": "object"},
             "action_items": {"type": "string"},
-            "workflow_ids": {"type": "array", "items": {"type": "integer"}},
+            "workflow_ids": {"type": "array", "items": {"type": "integer", "description": "Two or more SHANI workflow ids to compare. One id is rejected — there is nothing to compare it with."}},
         },
         "required": ["name", "type", "key_finding"],
     },

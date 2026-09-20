@@ -98,10 +98,7 @@ class PaperRepo(BaseRepository):
                     shani_paper_id, _now(),
                 ),
             )
-        row = self.fetch_one(
-            "SELECT id FROM GlobalPaper ORDER BY id DESC LIMIT 1"
-        )
-        global_id = row["id"]
+            global_id = c.lastrowid
 
         # Record the reference
         if project_id:

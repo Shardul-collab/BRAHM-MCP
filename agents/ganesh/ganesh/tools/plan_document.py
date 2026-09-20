@@ -125,8 +125,11 @@ def plan_document(repo, document_id: int, config: dict) -> dict:
 
     try:
         plan = call_llm_json(prompt, max_tokens=3000)
-    except LLMError as e:
-        raise RuntimeError(f"G2 LLM call failed: {e}")
+    except Exception as e:
+        # the grounded writing path does not use these briefs; a failed plan call must not stop the
+        # document (hosted backends cap output tokens per call, so a long JSON plan can be truncated)
+        print(f"[G2] LLM plan unavailable ({type(e).__name__}: {e}) - using the section template")
+        plan = {}
 
     planned_sections = plan.get("sections", [])
     if not planned_sections:
@@ -168,7 +171,7 @@ def plan_document(repo, document_id: int, config: dict) -> dict:
                 """
                 INSERT INTO GaneshSection
                     (document_id, section_name, section_type, brief_json,
-                     depends_on, exec_order, status, iteration_count,
+                     dependencies, exec_order, status, iteration_count,
                      created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)
                 """,

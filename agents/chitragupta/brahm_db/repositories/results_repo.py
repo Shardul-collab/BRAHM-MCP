@@ -55,12 +55,7 @@ class InstrumentResultRepo(BaseRepository):
                     _now(),
                 ),
             )
-        row = self.fetch_one(
-            "SELECT id FROM InstrumentResult"
-            " WHERE project_id=? ORDER BY id DESC LIMIT 1",
-            (project_id,),
-        )
-        result_id = row["id"]
+            result_id = c.lastrowid
         log.info(
             "InstrumentResult saved | id=%d project=%d technique=%s"
             " confidence=%.2f match_score=%s",
@@ -187,12 +182,7 @@ class DFTResultRepo(BaseRepository):
                     _now(),
                 ),
             )
-        row = self.fetch_one(
-            "SELECT id FROM DFTResult"
-            " WHERE project_id=? ORDER BY id DESC LIMIT 1",
-            (project_id,),
-        )
-        result_id = row["id"]
+            result_id = c.lastrowid
         log.info(
             "DFTResult saved | id=%d project=%d job=%s calc=%s status=%s",
             result_id, project_id, job_id, calc_type, status,

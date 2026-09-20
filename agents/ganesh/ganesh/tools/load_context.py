@@ -15,7 +15,10 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-SHANI_ROOT = Path("/mnt/d/brahm/agents/shani")
+# Was hardcoded to a WSL path (/mnt/d/brahm/...) until 2026-09-11 - the v1.1.1
+# path-portability pass never reached GANESH's tools. BRAHM_ROOT wins if set.
+_BRAHM_ROOT = Path(os.environ["BRAHM_ROOT"]) if os.environ.get("BRAHM_ROOT") else Path(__file__).resolve().parents[4]
+SHANI_ROOT = _BRAHM_ROOT / "agents" / "shani"
 if str(SHANI_ROOT) not in sys.path:
     sys.path.insert(0, str(SHANI_ROOT))
 
@@ -61,17 +64,17 @@ SECTION_CHARACTERIZATION_SUBTYPES = {
     "Discussion":  {"optical", "electrical"},
 }
 
-_STRUCTURAL_PATTERNS  = [r"\\bxrd\\b", r"x-ray diffraction",
-                          r"\\btem\\b", r"transmission electron micro",
-                          r"\\bafm\\b", r"atomic force micro",
-                          r"\\bsem\\b", r"scanning electron micro",
-                          r"\\bbet\\b"]
-_OPTICAL_PATTERNS     = [r"\\bpl\\b", r"\\braman\\b", r"photoluminescence",
-                          r"uv-?vis", r"\\bel\\b", r"electroluminescence",
-                          r"\\babsorption\\b"]
-_ELECTRICAL_PATTERNS  = [r"\\btlm\\b", r"transmission line measure",
-                          r"\\beis\\b", r"electrochemical impedance",
-                          r"i[-–]v\\b", r"\\bhall\\b"]
+_STRUCTURAL_PATTERNS  = [r"\bxrd\b", r"x-ray diffraction",
+                          r"\btem\b", r"transmission electron micro",
+                          r"\bafm\b", r"atomic force micro",
+                          r"\bsem\b", r"scanning electron micro",
+                          r"\bbet\b"]
+_OPTICAL_PATTERNS     = [r"\bpl\b", r"\braman\b", r"photoluminescence",
+                          r"uv-?vis", r"\bel\b", r"electroluminescence",
+                          r"\babsorption\b"]
+_ELECTRICAL_PATTERNS  = [r"\btlm\b", r"transmission line measure",
+                          r"\beis\b", r"electrochemical impedance",
+                          r"i[-–]v\b", r"\bhall\b"]
 
 
 def _classify_characterization(value: str) -> set:
@@ -291,7 +294,37 @@ def load_context(repo, document_id: int, config: dict) -> dict:
         or _build_knowledge_summary(repo, source_ids)
     )
 
+    # ── Evidence packets for grounded writing (2026-09-11) ───────────────────
+    # Every item carries E<ResearchKnowledge.id>, its paper and source
+    # sentence; papers are spread round-robin; abstract-only papers included
+    # and labelled. See ganesh/writing/evidence.py.
+    evidence_packets, property_coverage, subject_formulas = {}, {}, []
+    try:
+        import sqlite3 as _sq
+        from dataclasses import asdict
+        from ganesh.writing.evidence import document_packets
+        from ganesh.writing.claims import corpus_property_coverage
+        from ganesh.writing.grounding import _FORMULA_RE, is_formula
+        if source_ids:
+            with _sq.connect(str(SHANI_ROOT / "database" / "research_workflow.db")) as _c:
+                wid = int(source_ids[0])
+                evidence_packets = {sn: [asdict(e) for e in evs]
+                                    for sn, evs in document_packets(_c, wid, section_names).items()}
+                cfg = _c.execute("SELECT material, properties FROM WorkflowResearchConfig WHERE workflow_id=?",
+                                 (wid,)).fetchone()
+                if cfg:
+                    subject_formulas = [f for f in _FORMULA_RE.findall(cfg[0] or "") if is_formula(f)]
+                    props = [p.strip() for p in (cfg[1] or "").split(",") if p.strip()]
+                    property_coverage = corpus_property_coverage(_c, wid, props)
+        print(f"[G1] Evidence packets: " + ", ".join(
+            f"{k}={len(v)} items/{len({x['paper_id'] for x in v})} papers" for k, v in evidence_packets.items()))
+    except Exception as exc:
+        print(f"[G1] Evidence packets unavailable: {exc}")
+
     context_bundle = {
+        "evidence_packets":     evidence_packets,
+        "property_coverage":    property_coverage,
+        "subject_formulas":     subject_formulas,
         "document_type":        document_type,
         "source_workflow_ids":  source_ids,
         "material_context":     material_context,

@@ -13,9 +13,13 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime
+import os
 from pathlib import Path
 
-GANESH_ROOT = Path("/mnt/d/brahm/agents/ganesh")
+# Was hardcoded to a WSL path (/mnt/d/brahm/...) until 2026-09-11 - the v1.1.1
+# path-portability pass never reached GANESH's tools. BRAHM_ROOT wins if set.
+_BRAHM_ROOT = Path(os.environ["BRAHM_ROOT"]) if os.environ.get("BRAHM_ROOT") else Path(__file__).resolve().parents[4]
+GANESH_ROOT = _BRAHM_ROOT / "agents" / "ganesh"
 if str(GANESH_ROOT) not in sys.path:
     sys.path.insert(0, str(GANESH_ROOT))
 
@@ -92,70 +96,32 @@ def integrate_document(repo, document_id: int, config: dict) -> dict:
             "exec_order":   node.exec_order,
         })
 
-    # ── Build sections preview for LLM prompt ────────────────────────────────
-    # Skip abstract section from preview (we're generating it)
-    non_abstract = [s for s in assembled_sections if s["section_type"] != "abstract"]
-    sections_preview_parts = []
-    for i, sec in enumerate(non_abstract):
-        preview = sec["content"][:600] + "..." if len(sec["content"]) > 600 else sec["content"]
-        transition_marker = "\n[TRANSITION NEEDED]\n" if i < len(non_abstract) - 1 else ""
-        sections_preview_parts.append(
-            f"### {sec['section_name']}\n{preview}{transition_marker}"
-        )
+    # ── Assemble verbatim; the LLM writes only the abstract (2026-09-11) ─────
+    # The old path sent the LLM each section's first 600 chars and then used
+    # its reply AS the final sections, so any section longer than 600 chars
+    # reached the document as a rewrite of its own opening. See
+    # ganesh/writing/assemble.py.
+    from ganesh.writing.assemble import grounded_abstract, render_document, evidence_lookup
+    from ganesh.writing.grounding import _CITE_RE
 
-    sections_preview = "\n\n".join(sections_preview_parts)
+    body_sections = [s for s in assembled_sections if s["section_type"] != "abstract"]
+    failed = graph.get_failed_sections() if hasattr(graph, "get_failed_sections") else []
 
-    # ── LLM integration call ──────────────────────────────────────────────────
-    print(f"[G5] Calling LLM for abstract + transitions ({len(assembled_sections)} sections)...")
-
-    abstract_text   = ""
-    final_assembled = ""
-
+    print(f"[G5] Writing abstract from {len(body_sections)} full sections...")
+    abstract_text, abstract_dropped = "", []
     try:
-        prompt = INTEGRATION_PROMPT.format(
-            title           = title,
-            document_type   = document_type,
-            sections_preview = sections_preview,
-        )
-        llm_output = call_llm(prompt, max_tokens=4096)
-
-        # Parse abstract from LLM output
-        if "## Abstract" in llm_output:
-            parts = llm_output.split("---SECTIONS_FOLLOW---", 1)
-            abstract_text = parts[0].replace("## Abstract", "").strip()
-            llm_sections  = parts[1].strip() if len(parts) > 1 else ""
-        else:
-            abstract_text = ""
-            llm_sections  = llm_output
-
+        abstract_text, abstract_dropped = grounded_abstract(
+            lambda prompt, max_tokens=500: call_llm(prompt, max_tokens=max_tokens, role="polish"),
+            title, body_sections)
+        if abstract_dropped:
+            print(f"[G5] Abstract: removed {len(abstract_dropped)} sentence(s) with values not in the body")
     except LLMError as e:
-        print(f"[G5] LLM integration failed: {e} — assembling without abstract/transitions")
-        abstract_text = ""
-        llm_sections  = ""
+        print(f"[G5] Abstract generation failed: {e} — document has no abstract")
 
-    # ── Assemble final document ───────────────────────────────────────────────
-    doc_parts = [f"# {title}\n"]
-
-    # Abstract
-    if abstract_text:
-        doc_parts.append(f"## Abstract\n\n{abstract_text}\n")
-
-    # If LLM returned enhanced sections, use them; else use raw drafts
-    if llm_sections:
-        doc_parts.append(llm_sections)
-    else:
-        for sec in assembled_sections:
-            if sec["section_type"] == "abstract":
-                continue
-            doc_parts.append(f"\n## {sec['section_name']}\n\n{sec['content']}\n")
-
-    # References placeholder
-    doc_parts.append(
-        "\n## References\n\n"
-        "_[References extracted from source papers — to be formatted per journal style]_\n"
-    )
-
-    final_output = "\n".join(doc_parts)
+    eids = {e.strip() for s in body_sections for grp in _CITE_RE.findall(s["content"])
+            for e in grp.replace(";", ",").split(",")}
+    lookup = evidence_lookup(repo, eids)
+    final_output, provenance = render_document(title, abstract_text, body_sections, failed, lookup)
 
     # ── Mark sections as integrated ───────────────────────────────────────────
     now = datetime.utcnow().isoformat()
@@ -194,5 +160,7 @@ def integrate_document(repo, document_id: int, config: dict) -> dict:
         "word_count":       word_count,
         "sections_count":   len(assembled_sections),
         "has_abstract":     bool(abstract_text),
+        "references":       len(provenance["references"]),
+        "sections_failed":  failed,
         "final_output":     final_output,
     }

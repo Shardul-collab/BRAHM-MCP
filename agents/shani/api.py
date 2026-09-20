@@ -55,6 +55,11 @@ class WorkflowCreateRequest(BaseModel):
 
 class RunRequest(BaseModel):
     stop_after_stage: Optional[str] = "S4"
+    # Added 2026-09-09 alongside the resume fix. Default behaviour is to
+    # resume from wherever the workflow genuinely left off; these two are the
+    # deliberate overrides.
+    resume_from:   Optional[str]  = None   # enter at this stage explicitly
+    force_restart: Optional[bool] = False  # redo from S1 even if stages completed
 
 
 class BatchWorkflowItem(BaseModel):
@@ -124,12 +129,14 @@ def _create_workflow_with_config(repo: Repository, req: WorkflowCreateRequest) -
     return workflow_id
 
 
-def _run_workflow_thread(workflow_id: int, stop_after_stage: str):
+def _run_workflow_thread(workflow_id: int, stop_after_stage: str,
+                         resume_from: str = None, force_restart: bool = False):
     """Executed in a background thread. Own repo + orchestrator."""
     repo = make_repo()
     try:
         orch = Orchestrator(repo)
-        orch.start_workflow(workflow_id, stop_after_stage=stop_after_stage)
+        orch.start_workflow(workflow_id, stop_after_stage=stop_after_stage,
+                            resume_from=resume_from, force_restart=force_restart)
     except Exception as e:
         print(f"[API] Workflow {workflow_id} failed: {e}")
     finally:
@@ -201,14 +208,24 @@ def run_workflow(workflow_id: int, req: RunRequest, background_tasks: Background
     finally:
         repo.close()
 
+    if req.resume_from is not None and req.resume_from not in valid_stages:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid resume_from '{req.resume_from}'. "
+                   f"Valid: {sorted(s for s in valid_stages if s)}"
+        )
+
     background_tasks.add_task(
-        _run_workflow_thread, workflow_id, req.stop_after_stage
+        _run_workflow_thread, workflow_id, req.stop_after_stage,
+        req.resume_from, bool(req.force_restart)
     )
 
     return {
         "workflow_id": workflow_id,
         "message": "Workflow started in background",
-        "stop_after_stage": req.stop_after_stage
+        "stop_after_stage": req.stop_after_stage,
+        "resume_from":   req.resume_from,
+        "force_restart": bool(req.force_restart),
     }
 
 

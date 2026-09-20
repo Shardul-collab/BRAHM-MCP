@@ -10,7 +10,15 @@
 #   band_structure    — SCF → NSCF → bands.x post-processing
 #   dos_workflow      — SCF → NSCF (dense k) → dos.x
 #   phonon_workflow   — SCF → ph.x (DFPT)
+#   neb_workflow      — neb.x (minimum energy path / transition state)
+#   hp_workflow       — SCF → hp.x (Hubbard U from linear response)
 #   full_characterization — SCF → relax → bands + DOS + phonons
+#
+# neb_workflow and hp_workflow were added 2026-09-09. Before that, NEB and
+# HP existed only as ad-hoc input_generator→runner→parse sequences assembled
+# inline inside brahm/agents/vishwakarma.py's MCP handlers, so they were
+# unreachable from vishwakarma_api.py and from the coordinator's planner —
+# the only two of the seven calculation types that could not be composed.
 
 import logging
 from pathlib import Path
@@ -268,6 +276,108 @@ def phonon_workflow(structure: dict, calc_params: dict,
     return _workflow_result("phonon_workflow", steps)
 
 
+def neb_workflow(initial_structure: dict, final_structure: dict,
+                 calc_params: dict,
+                 num_images: int = 7,
+                 ci_scheme: str = "auto",
+                 opt_scheme: str = "broyden",
+                 nstep_path: int = 200,
+                 label: str = "neb",
+                 workdir: str = runner._DEFAULT_WORKDIR,
+                 bin_dir: str = runner._DEFAULT_BIN_DIR,
+                 timeout: Optional[int] = 28800,
+                 mpi_np: int = 1,
+                 job_id: Optional[str] = None) -> dict:
+    """
+    neb.x — minimum energy path / transition state between two structures.
+
+    Single-step: neb.x drives its own internal SCF cycle per image, so there
+    is no separate SCF step to chain (unlike dos/bands/phonon). Only the
+    endpoints are supplied; neb.x linearly interpolates the intermediate
+    images itself according to num_of_images.
+    """
+    neb_input = ig.neb(
+        images=[initial_structure, final_structure],
+        calc_params=calc_params,
+        num_of_images=num_images,
+        ci_scheme=ci_scheme,
+        opt_scheme=opt_scheme,
+        nstep_path=nstep_path,
+    )
+    jid    = job_id or runner.create_job(label, "neb", neb_input, workdir, mpi_np)
+    status = runner.run_job(jid, workdir, timeout, bin_dir)
+    parsed = op.parse_neb(runner.get_output(jid, workdir))
+    return _workflow_result("neb_workflow",
+                            [{"step": "neb", "job_id": jid,
+                              "status": status, "parsed": parsed}])
+
+
+def hp_workflow(structure: dict, calc_params: dict,
+                nq: tuple = (2, 2, 2),
+                label: str = "hp",
+                workdir: str = runner._DEFAULT_WORKDIR,
+                bin_dir: str = runner._DEFAULT_BIN_DIR,
+                timeout: Optional[int] = 7200,
+                mpi_np: int = 1,
+                job_id: Optional[str] = None,
+                hp_job_id: Optional[str] = None,
+                existing_scf_job_id: Optional[str] = None,
+                prefix: Optional[str] = None,
+                outdir: Optional[str] = None) -> dict:
+    """
+    SCF → hp.x (Hubbard U from linear response).
+
+    hp.x reads the charge density of a preceding SCF run, so this composes
+    the two the same way phonon_workflow does — including the shared-outdir
+    resolution, without which hp.x reads a fresh empty directory.
+
+    existing_scf_job_id: attach to an SCF that already ran instead of
+        repeating it (mirrors phonon_workflow's recover path). This is the
+        mode the vishwakarma_run_hp MCP tool used exclusively before this
+        workflow existed — it took prefix/outdir directly and left the
+        caller responsible for having run a compatible SCF first.
+    prefix/outdir: explicit override for the attach mode, for an SCF that
+        this runner did not launch (so no job_id exists to resolve against).
+    job_id:    reuse a pre-created job for the SCF step.
+    hp_job_id: reuse a pre-created job for the hp.x step. Needed by the
+        non-blocking API, which must return a job_id to poll before the
+        work starts — in attach mode there is no SCF step, so hp.x is the
+        only job and job_id alone would leave the returned id orphaned.
+    """
+    steps = []
+
+    if prefix and outdir:
+        # Fully explicit attach — caller knows exactly where the density is.
+        hp_prefix, shared_outdir = prefix, outdir
+        steps.append({"step": "scf", "job_id": existing_scf_job_id or "",
+                      "status": {"status": "reused"}, "parsed": None})
+    elif existing_scf_job_id:
+        hp_prefix = structure.get("prefix", "pwscf")
+        shared_outdir = _resolve_shared_outdir(
+            workdir, existing_scf_job_id, calc_params.get("outdir", "./out"))
+        steps.append({"step": "scf", "job_id": existing_scf_job_id,
+                      "status": {"status": "reused"}, "parsed": None})
+    else:
+        scf_input = ig.scf(structure, calc_params)
+        jid = job_id or runner.create_job(f"{label}_scf", "pw", scf_input, workdir, mpi_np)
+        status = runner.run_job(jid, workdir, timeout, bin_dir)
+        steps.append({"step": "scf", "job_id": jid, "status": status,
+                      "parsed": op.parse_pw(runner.get_output(jid, workdir))})
+        if status["status"] != "completed":
+            return _workflow_result("hp_workflow", steps, failed_at="scf")
+        hp_prefix = structure.get("prefix", "pwscf")
+        shared_outdir = _resolve_shared_outdir(
+            workdir, jid, calc_params.get("outdir", "./out"))
+
+    hp_input = ig.hp(hp_prefix, shared_outdir, nq=tuple(nq))
+    jid2 = hp_job_id or runner.create_job(f"{label}_hp", "hp", hp_input, workdir, mpi_np)
+    status2 = runner.run_job(jid2, workdir, timeout, bin_dir)
+    steps.append({"step": "hp", "job_id": jid2, "status": status2,
+                  "parsed": op.parse_hp(runner.get_output(jid2, workdir))})
+
+    return _workflow_result("hp_workflow", steps)
+
+
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
 def _resolve_shared_outdir(workdir: str, scf_job_id: str, outdir: str) -> str:
@@ -285,14 +395,70 @@ def _resolve_shared_outdir(workdir: str, scf_job_id: str, outdir: str) -> str:
     return str((Path(workdir) / scf_job_id / outdir).resolve())
 
 
+# A step's status["status"] value that counts as "this step is fine".
+# "reused" is set by the paths that deliberately skip re-running an SCF
+# (phonon_workflow's recover=True, hp_workflow's attach modes). Before
+# 2026-09-09 only "completed" was accepted here, so a phonon recover run
+# that finished perfectly still reported success=False — the skipped SCF
+# step dragged the whole result down. That in turn fed the persistence
+# layer, which derives its saved status from this flag.
+_OK_STEP_STATUSES = ("completed", "reused")
+
+
 def _workflow_result(name: str, steps: list, failed_at: str | None = None) -> dict:
-    all_ok = all(s["status"].get("status") == "completed" for s in steps)
+    all_ok = all(
+        s.get("status", {}).get("status") in _OK_STEP_STATUSES for s in steps
+    )
     return {
         "workflow":   name,
         "success":    all_ok and failed_at is None,
         "failed_at":  failed_at,
         "step_count": len(steps),
         "steps":      steps,
+        # Flattened summary of the scientifically-relevant step, so callers
+        # (notably the MCP persistence layer) do not have to reach into
+        # steps[] and silently get None when they forget to.
+        "summary":    _summarize_steps(steps),
+    }
+
+
+def _summarize_steps(steps: list) -> dict:
+    """
+    Flatten the step list into the fields downstream consumers actually want.
+
+    job_id is the LAST step's job — the one whose output is the result of
+    the workflow (the dos.x job for a DOS run, not its SCF). Convergence and
+    iteration counts come from the last step that produced a parse, since
+    post-processing steps like bands.x parse to almost nothing.
+
+    This exists because brahm/agents/vishwakarma.py was reading job_id,
+    converged and scf_iterations straight off the top level of the workflow
+    result, where they have never existed — so every DFT record written to
+    brahm.db carried an empty job_id and a null convergence flag.
+    """
+    if not steps:
+        return {"job_id": "", "converged": None,
+                "scf_iterations": None, "total_energy_ev": None}
+
+    last = steps[-1]
+    parsed_steps = [s for s in steps if isinstance(s.get("parsed"), dict)]
+    parsed = parsed_steps[-1]["parsed"] if parsed_steps else {}
+    energy_steps = [
+        s for s in parsed_steps
+        if s["parsed"].get("total_energy_ev") is not None
+    ]
+    iter_steps = [
+        s for s in parsed_steps
+        if s["parsed"].get("scf_iterations") is not None
+    ]
+
+    return {
+        "job_id":          last.get("job_id", ""),
+        "converged":       parsed.get("converged"),
+        "scf_iterations":  (iter_steps[-1]["parsed"]["scf_iterations"]
+                            if iter_steps else None),
+        "total_energy_ev": (energy_steps[-1]["parsed"]["total_energy_ev"]
+                            if energy_steps else None),
     }
 
 

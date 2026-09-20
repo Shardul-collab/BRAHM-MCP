@@ -84,7 +84,7 @@ async def chitragupta_create_project(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "project_id": {"type": "integer"},
+            "project_id": {"type": "integer", "description": "Chitragupta project id, from chitragupta_get_project. Projects live in brahm.db, which is a different database from SHANI's research_workflow.db."},
         },
         "required": ["project_id"],
     },
@@ -114,10 +114,11 @@ async def chitragupta_get_project(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "project_id": {"type": "integer"},
+            "project_id": {"type": "integer", "description": "Chitragupta project id, from chitragupta_get_project. Projects live in brahm.db, which is a different database from SHANI's research_workflow.db."},
             "agent":      {
                 "type": "string",
                 "enum": ["SHANI", "VIDUR", "Vishwakarma", "GANESH", "BRAHM", "Human"],
+                "description": "Which agent performed the action being logged.",
             },
             "event_type": {"type": "string", "description": "Snake_case event identifier"},
             "summary":    {"type": "string", "description": "One-line human-readable summary"},
@@ -162,7 +163,7 @@ async def chitragupta_log_event(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "project_id": {"type": "integer"},
+            "project_id": {"type": "integer", "description": "Chitragupta project id, from chitragupta_get_project. Projects live in brahm.db, which is a different database from SHANI's research_workflow.db."},
             "status": {
                 "type": "string",
                 "enum": ["queued", "running", "completed", "failed", "all"],
@@ -254,7 +255,7 @@ async def chitragupta_check_paper(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "title":          {"type": "string"},
+            "title":          {"type": "string", "description": "Human-readable title for the record being created."},
             "doi":            {"type": "string"},
             "abstract":       {"type": "string"},
             "project_id":     {"type": "integer", "description": "Associate with a project"},
@@ -298,7 +299,7 @@ async def chitragupta_register_paper(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "project_id":  {"type": "integer"},
+            "project_id":  {"type": "integer", "description": "Chitragupta project id, from chitragupta_get_project. Projects live in brahm.db, which is a different database from SHANI's research_workflow.db."},
             "file_path":   {"type": "string", "description": "Absolute path to classified file"},
             "technique":   {"type": "string", "description": "e.g. XRD, UV-Vis, SEM_EDX, Raman"},
             "confidence":  {"type": "number", "description": "VIDUR confidence score 0–1"},
@@ -353,12 +354,13 @@ async def chitragupta_save_instrument_result(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "project_id":         {"type": "integer"},
+            "project_id":         {"type": "integer", "description": "Chitragupta project id, from chitragupta_get_project. Projects live in brahm.db, which is a different database from SHANI's research_workflow.db."},
             "job_id":             {"type": "string", "description": "Vishwakarma job ID"},
             "calc_type":          {
                 "type": "string",
                 "enum": ["scf", "nscf", "relax", "vc-relax", "bands", "dos",
                          "projwfc", "pp", "phonon", "neb", "hp", "cp"],
+                "description": "Calculation type this DFT result came from.",
             },
             "structure":          {"type": "object", "description": "Crystal structure dict used"},
             "input_params":       {"type": "object", "description": "calc_params used"},
@@ -410,13 +412,14 @@ async def chitragupta_save_dft_result(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "project_id":    {"type": "integer"},
+            "project_id":    {"type": "integer", "description": "Chitragupta project id, from chitragupta_get_project. Projects live in brahm.db, which is a different database from SHANI's research_workflow.db."},
             "document_type": {
                 "type": "string",
                 "enum": ["literature_review", "dft_report", "research_report",
                          "manuscript_draft", "technical_summary", "daily_report"],
+                "description": "Kind of document being created.",
             },
-            "title":         {"type": "string"},
+            "title":         {"type": "string", "description": "Human-readable title for the record being created."},
             "workflow_ids":  {
                 "type": "array", "items": {"type": "integer"},
                 "description": "SHANI workflow IDs whose knowledge feeds this document",
@@ -472,7 +475,7 @@ async def chitragupta_create_document(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "document_id":       {"type": "integer"},
+            "document_id":       {"type": "integer", "description": "Chitragupta document id, from chitragupta_create_document. NOT a GANESH document id — GANESH documents live in research_workflow.db and are fetched with ganesh_get_document."},
             "include_sections":  {
                 "type": "boolean",
                 "default": True,
@@ -510,7 +513,7 @@ async def chitragupta_get_document(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "project_id": {"type": "integer"},
+            "project_id": {"type": "integer", "description": "Chitragupta project id, from chitragupta_get_project. Projects live in brahm.db, which is a different database from SHANI's research_workflow.db."},
             "save":       {
                 "type": "boolean",
                 "default": True,

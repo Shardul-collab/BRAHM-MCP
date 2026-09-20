@@ -132,6 +132,30 @@ class VectorDBService:
             "index_path":    self.index_path,
         }
 
+    # ── Rebuild from the DB (D4, 2026-09-11) ────────────────────────
+    # The index was only ever appended to. Every reset or purge deleted
+    # ResearchKnowledge rows and left their vectors, and because
+    # ResearchKnowledge.id is INTEGER PRIMARY KEY without AUTOINCREMENT,
+    # SQLite reuses those ids: on 2026-09-11, 137 of 614 vectors (22%) were
+    # stale and 125 of them carried a knowledge_id that now belonged to a row
+    # in a different paper. Rebuilding from the table makes the index a pure
+    # function of the DB. It also embeds the abstract-path rows, which S2_75
+    # never added, so papers without a PDF are searchable.
+    def rebuild(self, records: List[Dict]):
+        self.index   = faiss.IndexFlatL2(self.dimension)
+        self.id_map  = {}
+        self.next_id = 0
+        if records:
+            texts = [r["text"] for r in records]
+            self.index.add(self.embed_texts(texts))
+            for i, r in enumerate(records):
+                self.id_map[i] = {k: r.get(k) for k in (
+                    "knowledge_id", "paper_id", "workflow_id", "category",
+                    "value", "sentence", "doi", "title", "year")}
+            self.next_id = len(records)
+        self._save()
+        print(f"[VectorDB] Rebuilt from DB: {self.index.ntotal} vectors")
+
     # ── Reset ───────────────────────────────────────────────────────
     def reset(self):
         self.index   = faiss.IndexFlatL2(self.dimension)

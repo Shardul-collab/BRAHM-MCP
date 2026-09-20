@@ -17,6 +17,84 @@ class LLMResponseError(Exception):
 
 
 # ============================================================
+# LOCAL MODEL SELECTION
+#
+# Chosen 2026-09-09 by benchmarking real S5 prompts (121 of them, captured
+# from a live run) against every viable candidate on this machine's actual
+# hardware: an RTX 2050 with 4096 MiB total and ~3575 MiB free.
+#
+#   model                        useful/chunk  junk  grounded  bad_cats   sec
+#   qwen2.5:7b        (4.7GB)        4.17       0%     92.9%     7.1%    26.4
+#   qwen2.5:7b-q3_K_M (3.8GB)        5.83      24%     70.0%     2.0%    41.7
+#   qwen2.5:3b        (1.9GB)        1.67      43%     29.8%    10.6%     4.9
+#   qwen2.5-coder:3b  (1.9GB)        1.33       0%     66.7%    20.0%     2.7
+#   qwen2.5:14b       (9.0GB)        1.67       0%     55.6%     0.0%    59.4
+#
+# "grounded" is the fraction of extracted values whose text actually appears
+# in the passage — the S5 prompt's CRITICAL RULE is extract-only-what-is-
+# stated, so this is the metric that matters. "junk" is the fraction that are
+# "not specified" placeholders the prompt tells the model to omit.
+#
+# qwen2.5:7b wins on the axis that counts: 92.9% grounded with zero
+# placeholder junk. Two results worth recording because they are
+# counterintuitive:
+#
+#   * The SMALLER q3_K_M quantisation is both slower AND less accurate. At
+#     3.8GB it still does not fit in 3575 MiB, so it buys no GPU residency,
+#     while the quantisation damage shows up as 24% placeholder junk and a
+#     22-point drop in grounding.
+#   * The 14B is the worst of both worlds — 59.4s per chunk and only 55.6%
+#     grounded — because 9GB against 4GB of VRAM is mostly CPU offload.
+#
+# The 3B models are 5-10x faster and genuinely fit on the GPU, but qwen2.5:3b
+# emitted a "not specified" stub for 43% of items and grounded only 29.8%.
+# For a knowledge base other agents reason from, that is worse than useless:
+# it is confident noise. Speed was not worth it.
+#
+# The previous hardcoded value, llama3.1:8b-instruct-q3_k_m, was not
+# installed at all — every S5 chunk 404'd while the stage reported success.
+# ============================================================
+
+DEFAULT_LOCAL_MODEL = os.environ.get("SHANI_LOCAL_MODEL", "qwen2.5:7b")
+
+_OLLAMA_TAGS_URL = os.environ.get(
+    "OLLAMA_TAGS_URL", "http://localhost:11434/api/tags"
+)
+
+
+def ensure_model_available(model: str = None) -> str:
+    """
+    Verify the local model exists BEFORE a stage starts processing.
+
+    Without this, a missing model surfaces as a 404 on every chunk: the run
+    that prompted this check logged 38 consecutive failures and would have
+    completed the stage reporting success with only rule-based knowledge
+    stored. Same shape as the DocLayout-YOLO bug — an unavailable dependency
+    failing per item instead of once, loudly.
+
+    Returns the model name; raises RuntimeError naming what IS installed.
+    """
+    model = model or DEFAULT_LOCAL_MODEL
+    try:
+        resp = requests.get(_OLLAMA_TAGS_URL, timeout=10)
+        installed = [m.get("name", "") for m in resp.json().get("models", [])]
+    except Exception as e:
+        raise RuntimeError(
+            f"Cannot reach Ollama at {_OLLAMA_TAGS_URL} to verify model "
+            f"'{model}': {e}. Is Ollama running? Start it with: ollama serve"
+        )
+    # Ollama reports "qwen2.5:7b"; accept a bare name matching any tag too.
+    if model in installed or any(i.split(":")[0] == model for i in installed):
+        return model
+    raise RuntimeError(
+        f"Local model '{model}' is not installed in Ollama.\n"
+        f"Installed: {', '.join(installed) or '(none)'}\n"
+        f"Fix with:  ollama pull {model}\n"
+        f"Or set SHANI_LOCAL_MODEL to one of the installed models."
+    )
+
+
+# ============================================================
 # DEBUG LOGGING UTILITIES
 # ============================================================
 
@@ -57,8 +135,11 @@ OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://localhost:11434/api/ge
 
 class OllamaClient:
 
-    def __init__(self, model="mistral:7b-instruct", timeout=None):
-        self.model = model
+    def __init__(self, model=None, timeout=None):
+        # Default was "mistral:7b-instruct", a model that is not installed
+        # and that nothing in the pipeline actually asked for. Callers now
+        # get DEFAULT_LOCAL_MODEL unless they name one explicitly.
+        self.model = model or DEFAULT_LOCAL_MODEL
         self.timeout = timeout or 240
 
     def generate(self, prompt, max_tokens=800, temperature=0.7):
@@ -192,6 +273,40 @@ class LLMService:
         "subthreshold_swing",
         "contact_resistance",
         "photoresponsivity",
+        # 2026-09-11 (D3): quantities an MBE / photodetector / ferroelectric
+        # corpus is largely made of, which had no category before.
+        "growth_flux",
+        "ferroelectric_property",
+        "photodetector_metric",
+    }
+
+    # Categories the model invents for things the schema does hold. Measured on
+    # a replay of the last full S5 run: 44 of 542 raw items (8.1%) arrived under
+    # invented names and were dropped. Only unambiguous names are mapped;
+    # 'mobility', 'temperature', 'thickness' etc. stay dropped.
+    CATEGORY_ALIASES = {
+        # D12 (2026-09-11 pm): the prompt files dielectric constants under optical_property; the
+        # model wrote 'dielectric_property' for paper 20's headline value (eps_r = 17), which was dropped
+        "dielectric_property": "optical_property",
+        "dielectric_constant": "optical_property",
+        "carrier_density": "electrical_property",
+        "carrier_concentration": "electrical_property",
+        "bandgap": "optical_property",
+        "band_gap": "optical_property",
+        "growth_method": "synthesis_method",
+        "flux": "growth_flux",
+        "flux_ratio": "growth_flux",
+        "growth_rate": "growth_flux",
+        "deposition_rate": "growth_flux",
+        "dark_current": "photodetector_metric",
+        "photocurrent": "photodetector_metric",
+        "detectivity": "photodetector_metric",
+        "rise_time": "photodetector_metric",
+        "decay_time": "photodetector_metric",
+        "response_time": "photodetector_metric",
+        "polarization": "ferroelectric_property",
+        "piezoelectric_coefficient": "ferroelectric_property",
+        "coercive_field": "ferroelectric_property",
     }
 
     def __init__(self, llm_client):
@@ -239,6 +354,8 @@ class LLMService:
                 raise LLMResponseError("Invalid knowledge format")
             category = item["category"]
             value    = item["value"]
+            if isinstance(category, str):
+                category = self.CATEGORY_ALIASES.get(category.strip().lower(), category)
             if category not in self.ALLOWED_CATEGORIES:
                 continue
             validated.append({

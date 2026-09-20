@@ -85,6 +85,32 @@ class PhononParams(BaseModel):
     mpi_np:      Optional[int] = 1
     timeout:     Optional[int] = 14400
 
+class NebParams(BaseModel):
+    initial_structure: dict
+    final_structure:   dict
+    calc_params:       dict
+    num_images:  Optional[int] = 7
+    ci_scheme:   Optional[str] = "auto"
+    opt_scheme:  Optional[str] = "broyden"
+    nstep_path:  Optional[int] = 200
+    label:       Optional[str] = "neb"
+    mpi_np:      Optional[int] = 1
+    timeout:     Optional[int] = 28800
+
+class HpParams(BaseModel):
+    # Two modes, mirroring workflow.hp_workflow: supply a structure to run
+    # SCF then hp.x, or prefix+outdir (or existing_scf_job_id) to attach to
+    # an SCF that already ran.
+    structure:   Optional[dict] = None
+    calc_params: Optional[dict] = None
+    prefix:      Optional[str]  = None
+    outdir:      Optional[str]  = None
+    existing_scf_job_id: Optional[str] = None
+    nq:          Optional[list] = [2, 2, 2]
+    label:       Optional[str] = "hp"
+    mpi_np:      Optional[int] = 1
+    timeout:     Optional[int] = 7200
+
 class InputGenParams(BaseModel):
     calc_type:    str
     structure:    dict
@@ -268,6 +294,103 @@ async def calculate_phonon(params: PhononParams, background_tasks: BackgroundTas
                     "message": "Phonon launched. Poll /jobs/{job_id}."})
     except Exception as exc:
         return _err("Failed to launch phonon", str(exc))
+
+
+# NEB and HP were reachable only through the MCP layer until 2026-09-09 —
+# they had no endpoint here and no workflow function, so the coordinator and
+# its Layer 2 planner could not schedule them at all. Both now compose like
+# every other calculation type.
+
+@app.post("/calculate/neb", tags=["Calculate"])
+async def calculate_neb(params: NebParams, background_tasks: BackgroundTasks):
+    """Launch a NEB transition-state search. Returns job_id immediately."""
+    try:
+        # neb.x drives its own per-image SCF, so the first (and only) job is
+        # the neb job itself — unlike phonon/dos/bands, there is no separate
+        # SCF step to pre-create.
+        job_id = runner.create_job(
+            params.label, "neb",
+            input_generator.neb(
+                images=[params.initial_structure, params.final_structure],
+                calc_params=params.calc_params,
+                num_of_images=params.num_images,
+                ci_scheme=params.ci_scheme,
+                opt_scheme=params.opt_scheme,
+                nstep_path=params.nstep_path,
+            ),
+            _WORKDIR, params.mpi_np,
+        )
+        background_tasks.add_task(
+            workflow.neb_workflow,
+            initial_structure=params.initial_structure,
+            final_structure=params.final_structure,
+            calc_params=params.calc_params,
+            num_images=params.num_images,
+            ci_scheme=params.ci_scheme,
+            opt_scheme=params.opt_scheme,
+            nstep_path=params.nstep_path,
+            label=params.label,
+            workdir=_WORKDIR,
+            bin_dir=_BIN_DIR,
+            timeout=params.timeout,
+            mpi_np=params.mpi_np,
+            job_id=job_id,
+        )
+        return _ok({"job_id": job_id, "calc_type": "neb",
+                    "message": "NEB launched. Poll /jobs/{job_id}."})
+    except Exception as exc:
+        return _err("Failed to launch NEB", str(exc))
+
+
+@app.post("/calculate/hp", tags=["Calculate"])
+async def calculate_hp(params: HpParams, background_tasks: BackgroundTasks):
+    """Launch a Hubbard U (hp.x) calculation. Returns job_id immediately."""
+    attach = bool(params.prefix and params.outdir) or bool(params.existing_scf_job_id)
+    if not params.structure and not attach:
+        return _err(
+            "Failed to launch HP",
+            "Provide either structure (+calc_params) to run SCF then hp.x, or "
+            "prefix+outdir / existing_scf_job_id to attach to an existing SCF.",
+        )
+    try:
+        if attach and not params.structure:
+            # Attach mode: hp.x is the first and only job this launches.
+            job_id = runner.create_job(
+                f"{params.label}_hp", "hp",
+                input_generator.hp(params.prefix, params.outdir,
+                                   nq=tuple(params.nq)),
+                _WORKDIR, params.mpi_np,
+            )
+        else:
+            job_id = runner.create_job(
+                f"{params.label}_scf", "pw",
+                input_generator.scf(params.structure, params.calc_params or {}),
+                _WORKDIR, params.mpi_np,
+            )
+        background_tasks.add_task(
+            workflow.hp_workflow,
+            structure=params.structure or {},
+            calc_params=params.calc_params or {},
+            nq=tuple(params.nq),
+            label=params.label,
+            workdir=_WORKDIR,
+            bin_dir=_BIN_DIR,
+            timeout=params.timeout,
+            mpi_np=params.mpi_np,
+            # In attach mode the pre-created job IS the hp.x job, so it must
+            # be handed over as hp_job_id — passing it as job_id would seed
+            # the (skipped) SCF step and leave the id we just returned to the
+            # caller created-but-never-run.
+            job_id=None if (attach and not params.structure) else job_id,
+            hp_job_id=job_id if (attach and not params.structure) else None,
+            existing_scf_job_id=params.existing_scf_job_id,
+            prefix=params.prefix,
+            outdir=params.outdir,
+        )
+        return _ok({"job_id": job_id, "calc_type": "hp",
+                    "message": "HP launched. Poll /jobs/{job_id}."})
+    except Exception as exc:
+        return _err("Failed to launch HP", str(exc))
 
 # ── Input generation ──────────────────────────────────────────────────────────
 

@@ -11,4 +11,12 @@
 #   output_parser    — extract structured data from QE output files
 #   pseudo_manager   — discover and validate UPF pseudopotential files
 #   workflow         — orchestrate multi-step calculation sequences
-#   calculators/     — per-code wrappers (pw, ph, pp, dos, bands, neb)
+#
+# The tool surface consumed by BRAHM lives in brahm/agents/vishwakarma.py
+# (registered via brahm_registry) and in vishwakarma_api.py. The in-package
+# mcp_server.py is a v1 monolith left over from the pre-registry design —
+# it is imported by nothing and brahm_audit.py flags it as a "v1 ghost".
+#
+# A calculators/ package (per-code wrappers) was planned and listed here but
+# never written; the empty directory was removed 2026-09-09. Per-code logic
+# lives in input_generator/output_parser instead, keyed by code name.

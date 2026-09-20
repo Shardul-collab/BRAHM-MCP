@@ -44,6 +44,26 @@ class ToolRegistry:
         if handler is None:
             from brahm.shared.helpers import _err
             return _err(f"Unknown tool: {name}")
+
+        # 2026-09-20: mcp_server.py dispatches straight through with no schema
+        # check, so a missing required argument surfaced as an unhandled
+        # KeyError -- measured on 7 tools (analysis_technique_frequency,
+        # analysis_trend_report, analysis_find_gaps,
+        # analysis_parameter_distribution, research_find_papers_by_topic,
+        # shani_get_papers, shani_get_paper_content). The caller is a model and
+        # will get arguments wrong; it needs to be told which one, not handed a
+        # traceback.
+        schema = getattr(self._tools[name], "inputSchema", None) or {}
+        required = schema.get("required") or []
+        missing = [k for k in required if (args or {}).get(k) in (None, "")]
+        if missing:
+            from brahm.shared.helpers import _err
+            props = schema.get("properties") or {}
+            detail = "; ".join(
+                f"{k}: {(props.get(k) or {}).get('description', 'no description')}"
+                for k in missing)
+            return _err(f"{name} is missing required argument(s): {', '.join(missing)}",
+                        detail)
         return await handler(args)
 
     def summary(self) -> dict[str, list[str]]:

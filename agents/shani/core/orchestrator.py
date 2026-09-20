@@ -51,6 +51,32 @@ class Orchestrator:
     def __init__(self, repo: Repository):
         self.repo = repo
         self.tools = ToolExecutor(repo)
+        # Set per start_workflow() call; execute_stage reads it to decide
+        # whether idempotency guards apply.
+        self._force_restart = False
+
+    def _s2_satisfied(self, workflow_id: int) -> bool:
+        """
+        Has S2 already produced the papers this workflow asked for?
+
+        max_papers set  -> satisfied once that many papers exist.
+        max_papers unset-> satisfied once ANY paper exists. search_papers
+                           falls back to FINAL_PAPER_LIMIT=500 in that case,
+                           which no run reaches, so counting toward it would
+                           never trip and every resume would re-ingest.
+        """
+        row = self.repo.fetch_one(
+            "SELECT max_papers FROM WorkflowResearchConfig WHERE workflow_id = ?",
+            (workflow_id,),
+        )
+        target = row["max_papers"] if row and row["max_papers"] else None
+        count = self.repo.fetch_one(
+            "SELECT COUNT(*) AS n FROM Paper WHERE workflow_id = ?",
+            (workflow_id,),
+        )["n"]
+        if target:
+            return count >= target
+        return count > 0
 
     # =====================================================
     # LOCAL PAPER INGESTION
@@ -145,7 +171,25 @@ class Orchestrator:
                     result = self.tools.execute("generate_queries", workflow_id)
 
                 elif stage_name == "S2":
-                    result = self.tools.execute("search_papers", workflow_id)
+                    # S2 is the ONLY stage with no idempotency of its own, and
+                    # the only one whose re-run corrupts data rather than just
+                    # wasting time. S3 selects pdf_status='enriched', S5
+                    # selects papers at status='extracted' and advances each to
+                    # 'knowledge_ready' — re-entering those processes only what
+                    # is left. search_papers has no such filter: it searches and
+                    # inserts unconditionally, so every re-entry appends a fresh
+                    # set of papers. Workflow 2 reached 40 papers for a
+                    # max_papers=20 run this way.
+                    #
+                    # The cost of this guard is one COUNT. The cost of not
+                    # having it was a duplicated corpus.
+                    if not self._force_restart and self._s2_satisfied(workflow_id):
+                        print("[S2] Workflow already holds its target papers "
+                              "— skipping search (pass force_restart to override)")
+                        result = {"status": "success", "skipped": True,
+                                  "reason": "papers already ingested"}
+                    else:
+                        result = self.tools.execute("search_papers", workflow_id)
 
                 elif stage_name == "S2_75":
                     result = self.tools.execute(
@@ -298,8 +342,133 @@ class Orchestrator:
     # START WORKFLOW
     # =====================================================
 
-    def start_workflow(self, workflow_id: int, stop_after_stage: str = None):
+    def _reconcile_interrupted_stages(self, workflow_id: int) -> int:
+        """
+        Close out Stage rows left at 'running' with no ended_at.
 
+        A row in that state means the process died mid-stage — nothing is
+        running now, because start_workflow is the only entry point and it
+        refuses to act on a workflow that is not 'paused'. Leaving the rows
+        as 'running' is what made the resume logic misread history.
+
+        They are marked 'failed' and given an ended_at. 'interrupted' would
+        be the more honest status — the stage did not fail, it was cut off —
+        but Stage carries a CHECK constraint of
+        status IN ('running','completed','failed'), and SQLite cannot ALTER a
+        CHECK in place; adding a value means rebuilding the table (see
+        chitragupta's _migrate_project_event_human_agent for the pattern this
+        project uses when that is worth doing). It is not worth it here:
+        'failed' already produces the correct resume behaviour, because the
+        stage is re-entered either way. Returns how many were closed.
+        """
+        rows = self.repo.fetch_all(
+            """SELECT id, stage_name FROM Stage
+               WHERE workflow_id = ? AND ended_at IS NULL
+                 AND status NOT IN ('completed', 'failed')""",
+            (workflow_id,),
+        )
+        if not rows:
+            return 0
+        # Repository exposes fetch_one/fetch_all/transaction — there is no
+        # bare execute(); writes go through the transaction context manager.
+        with self.repo.transaction() as cursor:
+            for r in rows:
+                cursor.execute(
+                    "UPDATE Stage SET status='failed', ended_at=? WHERE id=?",
+                    (datetime.now().isoformat(), r["id"]),
+                )
+                print(f"[RESUME] Stage {r['stage_name']} (id={r['id']}) was left "
+                      f"running by an interrupted process — closing it as "
+                      f"'failed' so it is re-entered rather than skipped")
+        return len(rows)
+
+    def _resume_point(self, workflow_id: int, config) -> tuple:
+        """
+        Decide which stage to enter, from the workflow's real history.
+
+        Returns (stage_name, reason). stage_name is None when every stage in
+        STAGE_SEQUENCE has already completed.
+
+        THE BUG THIS REPLACES
+        ---------------------
+        The previous implementation read ONE row:
+
+            SELECT stage_name, status FROM Stage
+             WHERE workflow_id=? ORDER BY id DESC LIMIT 1
+
+        and branched: 'completed' -> next stage, 'failed' -> retry it,
+        else -> S1. A stage left at 'running' by an interrupted process
+        matched neither branch and fell through to S1, restarting the entire
+        pipeline from query generation.
+
+        That is not a small mis-step. This pipeline is deliberately
+        one-directional, and restarting from S1 is the largest possible
+        backward jump — the design's own invariant, broken by its recovery
+        path. In workflow 2 it fired three times: S1 ran 5x, S2 5x, S4 3x,
+        S5 4x with only one completion, wasting 31% of all recorded pipeline
+        time and silently re-ingesting papers until the corpus held 40 rows
+        for a 20-paper workflow.
+
+        Two further faults in the same three lines:
+          * ORDER BY id DESC takes the LAST-INSERTED row, not the
+            furthest-along stage. After any retry the newest row can be an
+            earlier stage than one already completed.
+          * A workflow with no Stage rows at all and one with a stale
+            'running' row both landed in the same else-branch, so "never
+            started" and "interrupted at S5" were indistinguishable.
+
+        This version derives the resume point from position in
+        STAGE_SEQUENCE, and treats a stage as done only when it is both
+        'completed' AND carries an ended_at. Anything else is incomplete and
+        gets re-entered — which is safe, because the stages that cost real
+        time already skip work that exists: S3 selects only
+        pdf_status='enriched' papers, and S5 selects only papers at
+        status='extracted', advancing each to 'knowledge_ready' as it goes.
+        Re-entering S5 with 8 of 9 papers done processes the 9th, not all 9.
+        """
+        rows = self.repo.fetch_all(
+            "SELECT stage_name, status, ended_at FROM Stage WHERE workflow_id = ?",
+            (workflow_id,),
+        )
+
+        def pos(name):
+            return self.STAGE_SEQUENCE.index(name) if name in self.STAGE_SEQUENCE else -1
+
+        completed = [r["stage_name"] for r in rows
+                     if r["status"] == "completed" and r["ended_at"]
+                     and pos(r["stage_name"]) >= 0]
+
+        if completed:
+            furthest = max(pos(n) for n in completed)
+            if furthest + 1 >= len(self.STAGE_SEQUENCE):
+                return None, "every stage already completed"
+            nxt = self.STAGE_SEQUENCE[furthest + 1]
+            return nxt, (f"resuming at {nxt} — furthest completed stage is "
+                         f"{self.STAGE_SEQUENCE[furthest]}")
+
+        attempted = [r["stage_name"] for r in rows if pos(r["stage_name"]) >= 0]
+        if attempted:
+            furthest = max(pos(n) for n in attempted)
+            name = self.STAGE_SEQUENCE[furthest]
+            return name, (f"re-entering {name} — it was attempted but never "
+                          f"completed, and no later stage has completed")
+
+        if config and config["use_local"]:
+            self.ingest_local_papers(workflow_id)
+            return "S4", "fresh workflow with use_local — starting at S4"
+        return "S1", "fresh workflow — starting at S1"
+
+    def start_workflow(self, workflow_id: int, stop_after_stage: str = None,
+                       resume_from: str = None, force_restart: bool = False):
+        """
+        Run a workflow forward from wherever it genuinely left off.
+
+        resume_from:   enter at this stage explicitly, skipping inference.
+        force_restart: begin again at S1 even if later stages completed.
+                       This is the escape hatch for deliberately redoing work
+                       (e.g. re-extracting after an extractor fix) — without
+                       it, idempotent resume would be a cage.
+        """
         workflow = workflow_repo.get_workflow(self.repo, workflow_id)
 
         if workflow is None:
@@ -313,6 +482,12 @@ class Orchestrator:
                 f"Current status: {workflow['status']}"
             )
 
+        self._force_restart = bool(force_restart)
+
+        # Close out rows left behind by an interrupted process BEFORE reading
+        # history, so the resume decision is made against an honest table.
+        self._reconcile_interrupted_stages(workflow_id)
+
         workflow_repo.update_workflow_status(
             self.repo, workflow_id, "running"
         )
@@ -325,23 +500,27 @@ class Orchestrator:
             (workflow_id,)
         )
 
-        last_stage = self.repo.fetch_one(
-            """SELECT stage_name, status FROM Stage
-               WHERE workflow_id=? ORDER BY id DESC LIMIT 1""",
-            (workflow_id,)
-        )
-
-        if last_stage and last_stage["status"] == "completed":
-            idx = self.STAGE_SEQUENCE.index(last_stage["stage_name"])
-            current_stage_name = self.STAGE_SEQUENCE[idx + 1]
-        elif last_stage and last_stage["status"] == "failed":
-            current_stage_name = last_stage["stage_name"]
+        if force_restart:
+            current_stage_name = "S1"
+            print("[RESUME] force_restart requested — starting at S1")
+        elif resume_from:
+            if resume_from not in self.STAGE_SEQUENCE:
+                workflow_repo.update_workflow_status(self.repo, workflow_id, "paused")
+                raise InvalidTransitionError(
+                    f"resume_from='{resume_from}' is not a known stage. "
+                    f"Valid stages: {', '.join(self.STAGE_SEQUENCE)}"
+                )
+            current_stage_name = resume_from
+            print(f"[RESUME] explicit resume_from={resume_from}")
         else:
-            if config and config["use_local"]:
-                current_stage_name = "S4"
-                self.ingest_local_papers(workflow_id)
-            else:
-                current_stage_name = "S1"
+            current_stage_name, reason = self._resume_point(workflow_id, config)
+            print(f"[RESUME] {reason}")
+            if current_stage_name is None:
+                workflow_repo.update_workflow_status(
+                    self.repo, workflow_id, "completed"
+                )
+                print("✅ Nothing left to run — workflow already complete.")
+                return
 
         workflow_repo.update_current_stage(
             self.repo, workflow_id, current_stage_name

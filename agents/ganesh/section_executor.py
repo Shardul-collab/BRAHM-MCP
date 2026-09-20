@@ -7,6 +7,7 @@ SectionExecutor: the write → critic → reviser loop for a single section.
 from __future__ import annotations
 
 import json
+import os
 import re
 import traceback
 from datetime import datetime
@@ -101,6 +102,21 @@ class SectionExecutor:
         section_id   = section.section_id
         section_name = section.section_name
         brief        = section.brief
+
+        # Grounded writing (2026-09-11): evidence IDs, mandatory citations and a
+        # deterministic verifier replace the self-grading write/critic loop.
+        # GANESH_WRITING_MODE = L3 | L4 | L5 (see ganesh/writing/variants.py).
+        mode    = os.environ.get("GANESH_WRITING_MODE", "").upper()
+        # per-section override, e.g. GANESH_WRITING_MODE_MAP='{"Synthesis Methods": "L5"}'
+        mode    = (json.loads(os.environ.get("GANESH_WRITING_MODE_MAP") or "{}")
+                   .get(section_name, mode) or mode).upper()
+        packets = (self.context_bundle or {}).get("evidence_packets", {})
+        if mode in ("L3", "L4", "L5"):
+            if section_name not in packets:
+                # never fall back to the uncited write/critic loop in grounded mode
+                raise RuntimeError(f"GANESH_WRITING_MODE={mode} but G1 built no evidence packet "
+                                   f"for '{section_name}' - see the [G1] Evidence packets log line")
+            return self._run_grounded(section, mode, packets[section_name])
 
         print(f"\n[GANESH] Section Executor: {section_name}")
 
@@ -392,6 +408,44 @@ No preamble. No markdown fences. Only the JSON object.
             critique          = {"issues": critique.issues},
             evidence_summary  = evidence_summary,
         )
+
+    def _run_grounded(self, section, mode: str, packet: list) -> dict:
+        from ganesh.llm_client import call_llm, model_for, LAST_CALL
+        from ganesh.writing.grounding import Evidence, summarise
+        from ganesh.writing.variants import Writer, write_section
+        evidence = [Evidence(**e) for e in packet]
+        topic    = self.context_bundle.get("material_context") or "the corpus"
+        subject  = set(self.context_bundle.get("subject_formulas") or [])
+        gaps     = (self.context_bundle.get("property_coverage")
+                    if section.section_name in ("Properties & Results", "Research Gaps") else None)
+        writer = Writer(call_llm, model_for("writer"),
+                        os.environ.get("GANESH_POLISH_MODEL") or None, topic, subject,
+                        repair_model=os.environ.get("GANESH_REPAIR_MODEL") or None)
+        self._update_section_status(section.section_id, SectionStatus.DRAFTING)
+        r = write_section(writer, mode, section.section_name, evidence, gaps)
+        summary  = summarise(r["checks"])
+        if not (r["text"] or "").strip():
+            # summarise([]) reports grounding 1.0 - an empty section must not be approved
+            raise RuntimeError(f"'{section.section_name}': grounded writing produced no text "
+                               f"({len(evidence)} evidence items, {len(r['paragraphs'])} paragraphs)")
+        draft_id = self._save_draft(section.section_id, 1, r["text"])
+        removed  = [x for p in r["paragraphs"] for x in p.get("removed", [])]
+        with self.repo.transaction() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO GaneshCritique
+                    (section_id, draft_id, scope, scores_json, issues_json, overall_score, created_at)
+                VALUES (?, ?, 'verifier', ?, ?, ?, ?)
+                """,
+                (section.section_id, draft_id,
+                 json.dumps({"mode": mode, **summary, "polish": r["polish"], "calls": writer.log}),
+                 json.dumps([{"removed_sentence": x} for x in removed]),
+                 round(10 * summary["grounding_rate"], 2), datetime.utcnow().isoformat()),
+            )
+        self._approve_section(section.section_id, draft_id, round(10 * summary["grounding_rate"], 2))
+        print(f"  [{section.section_name}] {mode}: {summary} | polish: {r['polish']} | {r['seconds']}s")
+        return {"approved": True, "final_score": round(10 * summary["grounding_rate"], 2),
+                "iterations": 1, "below_threshold": False}
 
     def _save_draft(self, section_id: int, version: int, content: str) -> int:
         word_count = len(content.split())

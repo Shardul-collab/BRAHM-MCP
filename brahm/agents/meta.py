@@ -44,22 +44,35 @@ def _health_vidur() -> dict:
     try:
         import extractor, auto_detector  # noqa: F401
         return {"agent": "VIDUR", "status": "ok", "type": "local_import"}
-    except ImportError as exc:
+    except Exception as exc:
         return {"agent": "VIDUR", "status": "import_error", "detail": str(exc)}
 
 def _health_vishwakarma() -> dict:
     try:
         import vishwakarma  # noqa: F401
         return {"agent": "Vishwakarma", "status": "ok", "type": "local_import"}
-    except ImportError as exc:
+    except Exception as exc:
         return {"agent": "Vishwakarma", "status": "import_error", "detail": str(exc)}
 
 def _health_chitragupta() -> dict:
+    # 2026-09-20: this probed Chitragupta by importing the NOTION client, whose
+    # import chain raises OSError when NOTION_TOKEN is unset -- and it caught
+    # only ImportError, so brahm_health and brahm_overview, the two tools whose
+    # job is "is BRAHM ok?", were the two that crashed. Twice wrong: a health
+    # probe must never raise, and Chitragupta's health is its data-custodian
+    # half, not the legacy Notion integration that is optional by design.
+    try:
+        from brahm_db import schema  # noqa: F401
+        out = {"agent": "Chitragupta", "status": "ok", "type": "local_import"}
+    except Exception as exc:
+        return {"agent": "Chitragupta", "status": "import_error",
+                "detail": f"{type(exc).__name__}: {exc}"}
     try:
         from notion.notion_client import create_page  # noqa: F401
-        return {"agent": "Chitragupta", "status": "ok", "type": "local_import"}
-    except ImportError as exc:
-        return {"agent": "Chitragupta", "status": "import_error", "detail": str(exc)}
+        out["notion"] = "available"
+    except Exception as exc:
+        out["notion"] = f"unavailable ({type(exc).__name__}) — optional"
+    return out
 
 
 @brahm_tool(

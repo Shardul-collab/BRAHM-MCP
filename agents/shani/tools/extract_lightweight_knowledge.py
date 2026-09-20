@@ -2,6 +2,10 @@ import re
 import spacy
 
 import repositories.paper_repo as paper_repo
+try:
+    from tools.keyword_match import keyword_in
+except ImportError:  # run with tools/ itself on sys.path
+    from keyword_match import keyword_in
 import repositories.research_knowledge_repo as rk_repo
 import repositories.failure_repo as failure_repo
 
@@ -43,7 +47,7 @@ nlp = spacy.load("en_core_web_sm")
 # Maximum words from abstract sent to LLM.
 # Title + first 120 words of abstract ≈ 150-200 tokens.
 # This keeps each LLM call well within Mistral 7B limits.
-MAX_ABSTRACT_WORDS = 120
+MAX_ABSTRACT_WORDS = 120   # no longer used by extract_by_llm (D7, 2026-09-11)
 
 # Max value length — real entity names are short
 MAX_VALUE_LENGTH = 60
@@ -160,12 +164,25 @@ MATERIAL_FORMULA_PATTERN = re.compile(
     r"\b([A-Z][a-z]?\d*){1,4}(?:/[A-Z][a-z]?\d*)*\b"
 )
 
-# Noise patterns — sentences containing these are skipped
+# Noise patterns. Written as a SENTENCE filter, but is_noise() is applied to the
+# whole title and the whole abstract, and a hit skips the PAPER.
+#
+# "this article" and "this paper" were on this list until 2026-09-11. They are
+# how authors introduce their own result ("In this article, we realized the MBE
+# growth of beta-In2Se3..."), not boilerplate, and they skipped 2 of 20 papers
+# in workflow 1 outright: paper 6 and paper 16. Paper 16 has no PDF, so its
+# abstract is its only content - it contributed nothing to the corpus at all.
+# This also contradicts the module's own contract above: "No rejection: all
+# papers with abstracts are processed".
+#
+# The remaining entries are publisher boilerplate. They still skip a paper
+# whose abstract carries e.g. a copyright line - none of the 20 abstracts in
+# workflow 1 do - which is recorded here as a known residual, not fixed.
 NOISE_PATTERNS = [
     "creative commons", "copyright", "doi:", "http",
     "all rights reserved", "correspondence", "received:",
     "accepted:", "journal of", "elsevier", "springer",
-    "©", "this article", "this paper"
+    "©",
 ]
 
 
@@ -181,6 +198,39 @@ def is_noise(text: str) -> bool:
 def is_valid_value(value: str) -> bool:
     v = value.strip()
     return bool(v) and 2 <= len(v) <= MAX_VALUE_LENGTH
+
+
+def is_valid_for_category(category: str, value: str, sentence: str = "") -> bool:
+    """
+    Apply S5's category-aware validation to S2_75's output.
+
+    FIX (2026-09-10): S2_75 only ever ran is_valid_value(), a bare length
+    check, so every category-specific rule in the pipeline was bypassed on
+    this path — including the periodic-table material gate added on
+    2026-09-09 after an LHCb author list reached the corpus as 605 "materials".
+
+    The gap was visible in the live corpus as a natural experiment: on the
+    same papers, the LLM path (which does run is_valid_knowledge) produced
+    In2Se3, Al2O3, Bi2Te3, Mn2In2Se5, MnBi2Te4 — real formulas — while this
+    path produced 'Se3' x14, 'Se', 'In', 'Mn', 'As'. 'Se3' is In2Se3 with
+    'In2' lost; the paper titled "Molecular beam epitaxy synthesis of In2Se3
+    films" had its material recorded as 'Se3'.
+
+    Imported lazily: extract_research_knowledge pulls in spacy and the LLM
+    service at module scope, and S2_75 should not pay that cost just to
+    validate a string if the import is unavailable for any reason.
+    """
+    try:
+        from tools.extract_research_knowledge import is_valid_knowledge
+    except Exception:
+        try:
+            from extract_research_knowledge import is_valid_knowledge
+        except Exception:
+            return True          # never block extraction on an import problem
+    try:
+        return is_valid_knowledge(category, value, sentence)
+    except Exception:
+        return True
 
 
 def truncate_abstract(abstract: str) -> str:
@@ -206,37 +256,60 @@ def truncate_abstract(abstract: str) -> str:
 # deduplicated before storage.
 # ============================================================
 
+def _sentences(title: str, abstract: str) -> list:
+    text = f"{title}. {abstract}"
+    return [x.strip() for x in re.split(r"(?<=[.!?])\s+", text) if x.strip()]
+
+
 def extract_by_rules(title: str, abstract: str) -> list:
 
     combined = f"{title}. {abstract}".lower()
     results  = []
     seen     = set()   # (category, value) dedup within this paper
+    # 2026-09-11: rule rows used to store sentence=None - all 92 abstract rows
+    # in workflow 1 had no evidence at all. Store the sentence that matched.
+    sentences = _sentences(title, abstract)
+
+    def evidence(keyword):
+        return next((x for x in sentences if keyword_in(keyword, x.lower())), None)
 
     # Synthesis, characterization, application
     for category, patterns in RULE_PATTERNS.items():
         for keyword, canonical_value in patterns.items():
-            if keyword in combined:
+            if keyword_in(keyword, combined):
                 key = (category, canonical_value)
                 if key not in seen:
                     seen.add(key)
                     results.append({
                         "category":   category,
                         "value":      canonical_value,
-                        "sentence":   None,
+                        "sentence":   evidence(keyword),
                         "confidence": "low"
                     })
 
     # Material formulas from title (higher signal than abstract)
-    title_tokens = MATERIAL_FORMULA_PATTERN.findall(title)
+    # finditer + group(0), NOT findall. The pattern has a capturing group
+    # inside a repetition, and re.findall returns that GROUP - i.e. only the
+    # LAST repetition - rather than the whole match: 'In2Se3' -> 'Se3',
+    # 'InSe' -> 'Se', 'GaAs' -> 'As', 'Mn2In2Se5' -> 'Se5'. That, not a
+    # validator gap, is where the corpus's split-formula materials came from
+    # (Se3 x14 purged 2026-09-10, then Se x5 / As left as bare elements).
+    # Found 2026-09-11.
+    title_tokens = [m.group(0) for m in MATERIAL_FORMULA_PATTERN.finditer(title)]
     for token in title_tokens:
-        if is_valid_value(token):
+        # The 2026-09-10 fix routed S2_75 through is_valid_knowledge, but only
+        # inside extract_by_llm - a path that never ran (it fired only when the
+        # rules found <2 items). This rule path, which wrote every abstract
+        # row, stayed unvalidated: the 2026-09-11 rebuild stored 'RF' (from
+        # "RF Magnetron Sputtering") as a material. Validate here too.
+        if is_valid_value(token) and is_valid_for_category("material", token, title):
             key = ("material", token)
             if key not in seen:
                 seen.add(key)
                 results.append({
                     "category":   "material",
                     "value":      token,
-                    "sentence":   None,
+                    "sentence":   title,
                     "confidence": "low"
                 })
 
@@ -264,19 +337,30 @@ def extract_by_llm(
     service: LLMService,
     existing_values: set
 ) -> list:
+    """
+    Decision D7 (2026-09-11). This used to run only when the keyword rules had
+    found fewer than 2 items - which on workflow 1 was never, so all 92
+    abstract rows were keyword tags - and it saw the first 120 words
+    (MAX_ABSTRACT_WORDS, "Mistral 7B limits"): 66% of this corpus's abstract
+    text. Its prompt could only name 5 entity types and no numbers.
 
-    short_abstract = truncate_abstract(abstract)
+    For the 11 papers with no PDF the abstract is their only content, and the
+    review counts them as abstract-level evidence, so they get the same
+    extraction as full text: S5's prompt and schema over the FULL abstract,
+    the same local benchmarked model, the same gates, and evidence located by
+    evidence_sentence().
+    """
+    try:
+        from tools.extract_research_knowledge import (
+            LLM_EXTRACTION_PROMPT, is_valid_value as s5_valid_value,
+            is_valid_knowledge, evidence_sentence)
+    except ImportError:
+        from extract_research_knowledge import (
+            LLM_EXTRACTION_PROMPT, is_valid_value as s5_valid_value,
+            is_valid_knowledge, evidence_sentence)
 
-    prompt = (
-        "Extract scientific entities from the title and abstract below.\n"
-        "Return a JSON array only. Each item must have:\n"
-        '  "category": one of material|synthesis_method|'
-        'characterization|application|computational_method\n'
-        '  "value": the specific entity name (1-5 words, no sentences)\n\n'
-        f'Title: "{title}"\n'
-        f'Abstract: "{short_abstract}"\n\n'
-        "JSON array:"
-    )
+    passage = f"{title}. {abstract}"
+    prompt  = LLM_EXTRACTION_PROMPT.replace("{passage}", passage[:4000])
 
     try:
         items = service.extract(prompt, stage="S2_75")
@@ -286,30 +370,28 @@ def extract_by_llm(
 
     results = []
     seen    = set()
-
     for item in items:
         category = item.get("category", "")
-        value    = item.get("value", "")
-
-        if not is_valid_value(value):
+        value    = str(item.get("value", "")).strip()
+        # S5's value gate; the workflow query terms are not available here, so
+        # numeric / formula / acronym values and the relaxed categories pass,
+        # and a bare word in any other category does not.
+        if not s5_valid_value(value, set(), category):
             continue
-
-        # Skip if already captured by rules
+        if not is_valid_knowledge(category, value, passage):
+            continue
         if value.lower() in existing_values:
             continue
-
-        key = (category, value)
+        key = (category, value.lower())
         if key in seen:
             continue
-
         seen.add(key)
         results.append({
             "category":   category,
             "value":      value,
-            "sentence":   short_abstract[:200],
+            "sentence":   evidence_sentence(passage, value),
             "confidence": "medium"
         })
-
     return results
 
 
@@ -329,8 +411,8 @@ def extract_lightweight_knowledge(
 
     For each qualifying paper:
     1. Run rule-based extraction (no LLM, confidence='low')
-    2. If rule coverage < 2 entries: run one LLM call
-       (confidence='medium')
+    2. Run one LLM call on the full title + abstract with S5's prompt
+       and gates (confidence='medium') - every paper, since D7
     3. Store all results via create_lightweight_knowledge()
     4. Log failures to FailureLog without stopping pipeline
 
@@ -361,7 +443,10 @@ def extract_lightweight_knowledge(
     # --------------------------------------------------
     # LLM INIT — single instance for all papers
     # --------------------------------------------------
-    llm     = GroqClient(timeout=120)
+    # Local benchmarked model (DEFAULT_LOCAL_MODEL, qwen2.5:7b) - the same one
+    # S5 uses - rather than Groq, so abstract and full-text rows come from one
+    # model and one prompt. Changed 2026-09-11 with D7.
+    llm     = OllamaClient()
     service = LLMService(llm)
 
     # --------------------------------------------------
@@ -396,15 +481,10 @@ def extract_lightweight_knowledge(
             rule_results = extract_by_rules(title, abstract)
 
             # STEP 2: LLM extraction if rules found < 2 entities
-            llm_results = []
-
-            if len(rule_results) < 2:
-                existing_values = {
-                    r["value"].lower() for r in rule_results
-                }
-                llm_results = extract_by_llm(
-                    title, abstract, service, existing_values
-                )
+            # D7: the LLM runs on every paper with an abstract, not only
+            # when the keyword rules found fewer than 2 items.
+            existing_values = {r["value"].lower() for r in rule_results}
+            llm_results = extract_by_llm(title, abstract, service, existing_values)
 
             all_results = rule_results + llm_results
 

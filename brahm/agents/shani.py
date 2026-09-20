@@ -39,9 +39,9 @@ STAGE_ENUM = ["S1", "S2", "S2_75", "S2_5", "S3", "S4", "S5", "S5_5"]
     input_schema={
         "type": "object",
         "properties": {
-            "name":             {"type": "string"},
-            "material":         {"type": "string"},
-            "focus":            {"type": "string"},
+            "name":             {"type": "string", "description": "Name for the workflow, e.g. 'In2Se3 Review — fresh baseline'."},
+            "material":         {"type": "string", "description": "Subject material the workflow searches for, e.g. 'In2Se3'. Drives query generation and the relevance gate."},
+            "focus":            {"type": "string", "description": "Research focus narrowing the search, e.g. 'thin film growth' or 'photodetectors'."},
             "structure":        {"type": "string"},
             "method":           {"type": "string"},
             "properties":       {"type": "string"},
@@ -65,14 +65,31 @@ async def shani_create_workflow(args: dict) -> dict:
 @brahm_tool(
     name="shani_run_workflow", group="shani",
     description=(
-        "Start a paused workflow. Runs asynchronously — returns immediately. "
-        "Poll shani_get_status to monitor. Default stop is S4."
+        "Start or RESUME a paused workflow. Runs asynchronously — returns "
+        "immediately. Poll shani_get_status to monitor. Default stop is S4. "
+        "Resuming is the default and is safe: the workflow continues from the "
+        "furthest stage it actually completed, and already-ingested papers are "
+        "not searched again. Use force_restart only when you intend to redo "
+        "completed work (e.g. re-extracting after an extractor change) — it "
+        "re-runs the search and will add papers to the corpus."
     ),
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_id":      {"type": "integer"},
+            "workflow_id":      {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."},
             "stop_after_stage": {"type": "string", "enum": STAGE_ENUM, "default": "S4"},
+            "resume_from": {
+                "type": "string", "enum": STAGE_ENUM,
+                "description": "Enter at this stage explicitly instead of "
+                               "inferring the resume point. Rarely needed.",
+            },
+            "force_restart": {
+                "type": "boolean", "default": False,
+                "description": "Restart from S1, redoing completed stages and "
+                               "re-running the paper search. Adds papers to an "
+                               "existing corpus — do not use to recover from an "
+                               "interrupted run, which resumes correctly on its own.",
+            },
         },
         "required": ["workflow_id"],
     },
@@ -81,7 +98,12 @@ async def shani_create_workflow(args: dict) -> dict:
 async def shani_run_workflow(args: dict) -> dict:
     wf_id      = args["workflow_id"]
     stop_after = args.get("stop_after_stage", "S4")
-    result = await _shani_post(f"/workflows/{wf_id}/run", {"stop_after_stage": stop_after})
+    body = {"stop_after_stage": stop_after}
+    if args.get("resume_from"):
+        body["resume_from"] = args["resume_from"]
+    if args.get("force_restart"):
+        body["force_restart"] = True
+    result = await _shani_post(f"/workflows/{wf_id}/run", body)
     if result.get("status") == "error":
         return result
     return _ok(result)
@@ -97,13 +119,15 @@ async def shani_run_workflow(args: dict) -> dict:
         "type": "object",
         "properties": {
             "workflows": {
+                "description": ("Workflow configs to create and run in one batch, each with at "
+                                "least name, material and focus. Max 20."),
                 "type": "array", "maxItems": 20,
                 "items": {
                     "type": "object",
                     "properties": {
-                        "name":             {"type": "string"},
-                        "material":         {"type": "string"},
-                        "focus":            {"type": "string"},
+                        "name":             {"type": "string", "description": "Name for the workflow, e.g. 'In2Se3 Review — fresh baseline'."},
+                        "material":         {"type": "string", "description": "Subject material the workflow searches for, e.g. 'In2Se3'. Drives query generation and the relevance gate."},
+                        "focus":            {"type": "string", "description": "Research focus narrowing the search, e.g. 'thin film growth' or 'photodetectors'."},
                         "structure":        {"type": "string"},
                         "method":           {"type": "string"},
                         "properties":       {"type": "string"},
@@ -131,7 +155,7 @@ async def shani_batch_run(args: dict) -> dict:
     description="Get full status of a workflow: all stage records + latest execution attempt.",
     input_schema={
         "type": "object",
-        "properties": {"workflow_id": {"type": "integer"}},
+        "properties": {"workflow_id": {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."}},
         "required": ["workflow_id"],
     },
 )
@@ -181,7 +205,7 @@ async def shani_get_all_status(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_id":   {"type": "integer"},
+            "workflow_id":   {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."},
             "status_filter": {
                 "type": "string",
                 "enum": ["all","extracted","pending","failed","knowledge_ready","completed"],
@@ -210,8 +234,8 @@ async def shani_get_papers(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_id": {"type": "integer"},
-            "paper_id":    {"type": "integer"},
+            "workflow_id": {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."},
+            "paper_id":    {"type": "integer", "description": "Paper id within that workflow, from shani_get_papers."},
         },
         "required": ["workflow_id", "paper_id"],
     },
@@ -231,7 +255,7 @@ async def shani_get_paper_content(args: dict) -> dict:
     description="Full dump of all papers + extracted content for a workflow.",
     input_schema={
         "type": "object",
-        "properties": {"workflow_id": {"type": "integer"}},
+        "properties": {"workflow_id": {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."}},
         "required": ["workflow_id"],
     },
 )
@@ -248,7 +272,7 @@ async def shani_extract_workflow_data(args: dict) -> dict:
     description="DESTRUCTIVE: Delete all workflows, papers, content. Must pass confirm=true.",
     input_schema={
         "type": "object",
-        "properties": {"confirm": {"type": "boolean", "enum": [True]}},
+        "properties": {"confirm": {"type": "boolean", "enum": [True], "description": "Must be true. DESTRUCTIVE: wipes the SHANI database. There is no undo and no automatic backup."}},
         "required": ["confirm"],
     },
 )
@@ -281,7 +305,7 @@ async def shani_clear_database(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_id": {"type": "integer"},
+            "workflow_id": {"type": "integer", "description": "SHANI workflow id, from shani_get_all_status. The live corpus is workflow 1 ('In2Se3 Review — fresh baseline')."},
             "from_stage":  {"type": "string", "enum": STAGE_ENUM},
         },
         "required": ["workflow_id"],
@@ -342,9 +366,9 @@ async def shani_reset_workflow(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "name":             {"type": "string"},
-            "material":         {"type": "string"},
-            "focus":            {"type": "string"},
+            "name":             {"type": "string", "description": "Name for the workflow, e.g. 'In2Se3 Review — fresh baseline'."},
+            "material":         {"type": "string", "description": "Subject material the workflow searches for, e.g. 'In2Se3'. Drives query generation and the relevance gate."},
+            "focus":            {"type": "string", "description": "Research focus narrowing the search, e.g. 'thin film growth' or 'photodetectors'."},
             "structure":        {"type": "string"},
             "method":           {"type": "string"},
             "properties":       {"type": "string"},
@@ -378,7 +402,8 @@ async def queue_add_workflow(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "workflow_ids":         {"type": "array", "items": {"type": "integer"}},
+            "workflow_ids":         {"type": "array", "items": {"type": "integer"},
+                                     "description": "One or more SHANI workflow ids to run knowledge extraction over."},
             "min_extracted_papers": {"type": "integer", "default": 10},
         },
         "required": ["workflow_ids"],

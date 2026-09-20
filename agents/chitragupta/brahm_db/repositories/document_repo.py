@@ -51,12 +51,7 @@ class DocumentRepo(BaseRepository):
                     _now(),
                 ),
             )
-        row = self.fetch_one(
-            "SELECT id FROM GaneshDocument"
-            " WHERE project_id=? ORDER BY id DESC LIMIT 1",
-            (project_id,),
-        )
-        doc_id = row["id"]
+            doc_id = c.lastrowid
         log.info(
             "GaneshDocument created | id=%d project=%d type=%s title=%.50s",
             doc_id, project_id, document_type, title,
@@ -137,13 +132,8 @@ class DocumentRepo(BaseRepository):
                 """,
                 (document_id, section_name, order_index, _now()),
             )
-        row = self.fetch_one(
-            "SELECT id FROM GaneshSection"
-            " WHERE document_id=? AND section_name=?"
-            " ORDER BY id DESC LIMIT 1",
-            (document_id, section_name),
-        )
-        return row["id"]
+            _new_id = c.lastrowid
+        return _new_id
 
     def save_draft(self, section_id: int, draft: str) -> None:
         with self.transaction() as c:

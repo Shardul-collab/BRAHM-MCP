@@ -30,11 +30,8 @@ class ProjectRepo(BaseRepository):
                 " VALUES (?, ?, 'active', ?, ?)",
                 (name, objective, now, now),
             )
-        row = self.fetch_one(
-            "SELECT id FROM Project WHERE name=? ORDER BY id DESC LIMIT 1",
-            (name,),
-        )
-        return row["id"]
+            _new_id = c.lastrowid
+        return _new_id
 
     def get_project(self, project_id: int) -> dict | None:
         row = self.fetch_one(
@@ -87,12 +84,8 @@ class ProjectRepo(BaseRepository):
                     _now(),
                 ),
             )
-        row = self.fetch_one(
-            "SELECT id FROM ProjectEvent WHERE project_id=?"
-            " ORDER BY id DESC LIMIT 1",
-            (project_id,),
-        )
-        return row["id"]
+            _new_id = c.lastrowid
+        return _new_id
 
     def complete_event(
         self,
@@ -147,12 +140,8 @@ class ProjectRepo(BaseRepository):
                     json.dumps(config), priority, _now(),
                 ),
             )
-        row = self.fetch_one(
-            "SELECT id FROM Workload WHERE project_id=?"
-            " ORDER BY id DESC LIMIT 1",
-            (project_id,),
-        )
-        return row["id"]
+            _new_id = c.lastrowid
+        return _new_id
 
     def get_workload(self, workload_id: int) -> dict | None:
         row = self.fetch_one(
@@ -237,12 +226,8 @@ class ProjectRepo(BaseRepository):
                     recommendation, _now(),
                 ),
             )
-        row = self.fetch_one(
-            "SELECT id FROM DecisionPoint WHERE project_id=?"
-            " ORDER BY id DESC LIMIT 1",
-            (project_id,),
-        )
-        return row["id"]
+            _new_id = c.lastrowid
+        return _new_id
 
     def resolve_decision(
         self, decision_id: int, human_response: str
@@ -290,12 +275,8 @@ class ProjectRepo(BaseRepository):
                 " VALUES (?, ?, ?, 'active', ?)",
                 (project_id, next_num, objective, _now()),
             )
-        row2 = self.fetch_one(
-            "SELECT id FROM ResearchCycle WHERE project_id=?"
-            " ORDER BY id DESC LIMIT 1",
-            (project_id,),
-        )
-        return row2["id"]
+            _new_id = c.lastrowid
+        return _new_id
 
     def complete_cycle(
         self, cycle_id: int, notes: str | None = None

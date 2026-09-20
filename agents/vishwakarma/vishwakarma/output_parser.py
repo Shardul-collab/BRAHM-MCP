@@ -25,7 +25,7 @@ def parse(output_text: str, code: str = "pw") -> dict:
 
     Args:
         output_text: raw content of *.out file
-        code: "pw" | "ph" | "dos" | "bands" | "pp" | "neb"
+        code: "pw" | "ph" | "dos" | "bands" | "pp" | "neb" | "hp"
 
     Returns:
         Structured dict — keys depend on code, always includes "converged" and "warnings".
@@ -36,6 +36,7 @@ def parse(output_text: str, code: str = "pw") -> dict:
         "dos":   parse_dos,
         "bands": parse_bands,
         "neb":   parse_neb,
+        "hp":    parse_hp,
     }
     fn = dispatch.get(code, parse_pw)
     return fn(output_text)
@@ -351,12 +352,29 @@ def parse_neb(text: str) -> dict:
         "warnings":       [],
     }
 
-    # Path energies (in eV)
-    energy_block = re.search(
-        r"activation energy.*?\(([-\d.]+)\s*eV\)", text, re.IGNORECASE
-    )
-    if energy_block:
-        result["activation_ev"] = float(energy_block.group(1))
+    # Activation energy. Two spellings are accepted:
+    #
+    #   forward form (what neb.x prints, and what this parser MISSED until
+    #   2026-09-09):   activation energy (->) =   0.812345 eV
+    #   bracketed form (what the original regex required):  ... (0.812345 eV)
+    #
+    # The original pattern only matched the bracketed form, so on the
+    # forward form — "(->)"  has no digits in it — activation_ev came back
+    # None and the barrier, the entire point of running NEB, was dropped.
+    #
+    # UNVERIFIED: there has never been a completed neb.x job in
+    # agents/vishwakarma/jobs/, so both spellings here come from the QE
+    # output format rather than from an observed run. Capture a real output
+    # and pin it as a fixture the first time a NEB run finishes.
+    for pattern in (
+        r"activation energy\s*\(\s*->\s*\)\s*=\s*([-\d.]+)\s*eV",
+        r"activation energy.*?\(([-\d.]+)\s*eV\)",
+        r"activation energy[^\n=]*=\s*([-\d.]+)\s*eV",
+    ):
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            result["activation_ev"] = float(m.group(1))
+            break
 
     path_e = re.findall(r"image:\s*\d+\s+([-\d.]+)\s*eV", text)
     if path_e:
@@ -365,6 +383,96 @@ def parse_neb(text: str) -> dict:
             result["reaction_ev"] = round(
                 float(path_e[-1]) - float(path_e[0]), 6
             )
+
+    result["warnings"] = re.findall(r"Warning:(.+)", text, re.IGNORECASE)
+    return result
+
+
+# ─── hp.x parser ─────────────────────────────────────────────────────────────
+
+def parse_hp(text: str) -> dict:
+    """
+    Parse hp.x output — Hubbard U parameters from linear response.
+
+    This logic previously lived inline inside brahm/agents/vishwakarma.py's
+    vishwakarma_run_hp handler as a single bare regex, which meant
+    parse()/vishwakarma_parse_output could not read an hp job at all and the
+    extraction was untestable. Moved here so hp is a first-class code like
+    pw/ph/dos/bands/neb.
+
+    Two output shapes are handled, because hp.x's own format has changed
+    across QE versions and the inline regex only ever matched the first:
+
+      1. Inline form:  Hubbard U (eV) = 6.7788
+      2. Table form (QE 7.x, the common one):
+           site n.  type  label  spin  new_type  new_label  Hubbard U (eV)
+             1       1     Ni     1        1        Ni        6.7788
+
+    Sites are returned alongside the bare value list so a multi-site run
+    stays interpretable — u_values_ev alone loses which atom each U belongs
+    to. u_values_ev is kept for backward compatibility with the shape the
+    old inline handler returned.
+
+    NOTE: verified against synthetic fixtures only. There is no hp.x job in
+    agents/vishwakarma/jobs/ to check against, so the table column order is
+    taken from the QE 7.x hp.x source layout, not from an observed run.
+    Re-verify against a real hp.x output before trusting multi-site results.
+    """
+    result = {
+        "code":         "hp",
+        "converged":    False,
+        "u_values_ev":  [],
+        "sites":        [],      # [{site, type, label, u_ev}]
+        "warnings":     [],
+    }
+
+    # hp.x prints this banner on a clean finish; fall back to JOB DONE.
+    lowered = text.lower()
+    result["converged"] = (
+        "hubbard parameters" in lowered and "job done" in lowered
+    ) or "computed hubbard u" in lowered
+
+    # Shape 1 — inline "Hubbard U (eV) = X"
+    inline = re.findall(r"Hubbard U\s*\(\s*\w+\s*\)\s*=\s*([-\d.]+)", text)
+
+    # Shape 2 — the site table. Anchor on the header, then read the rows
+    # under it until a blank line or a non-numeric leading token.
+    table_rows = []
+    header = re.search(
+        r"^\s*site\s+n\..*?Hubbard\s+U\s*\(\s*\w+\s*\)\s*$",
+        text, re.IGNORECASE | re.MULTILINE,
+    )
+    if header:
+        for line in text[header.end():].splitlines():
+            stripped = line.strip()
+            if not stripped:
+                if table_rows:
+                    break
+                continue
+            parts = stripped.split()
+            # site type label spin new_type new_label U   → 7 columns
+            if len(parts) >= 7 and parts[0].isdigit():
+                try:
+                    table_rows.append({
+                        "site":  int(parts[0]),
+                        "type":  int(parts[1]),
+                        "label": parts[2],
+                        "u_ev":  float(parts[-1]),
+                    })
+                except ValueError:
+                    break
+            elif table_rows:
+                break
+
+    if table_rows:
+        result["sites"] = table_rows
+        result["u_values_ev"] = [r["u_ev"] for r in table_rows]
+    elif inline:
+        result["u_values_ev"] = [float(u) for u in inline]
+        result["sites"] = [
+            {"site": i + 1, "type": None, "label": None, "u_ev": float(u)}
+            for i, u in enumerate(inline)
+        ]
 
     result["warnings"] = re.findall(r"Warning:(.+)", text, re.IGNORECASE)
     return result

@@ -1,8 +1,45 @@
 import os
+import re
 import json
+import difflib
 import requests
 
 from urllib.parse import urlparse, urlunparse
+
+# ============================================================
+# ARXIV TITLE-MATCH THRESHOLD
+#
+# FIX (2026-09-09): lookup_arxiv() ran a free-text arXiv search on the
+# paper's title, took the FIRST result unconditionally, and never compared
+# what came back to what was asked for. The function carried the comment
+# "Unchanged — correct as written."
+#
+# It was not. In workflow 2 it returned arXiv 1411.4413 — "Observation of
+# the rare B0s -> mu+mu- decay from the combined analysis of CMS and LHCb
+# data", a CERN particle-physics paper — as the match for BOTH:
+#     "Formation of Beta-Indium Selenide Layers Grown via Selenium
+#      Passivation of InP(111)B Substrate"          (paper 6)
+#     "Molecular Beam Epitaxy of Twin-Free Bi2Se3 and Sb2Te3 on
+#      In2Se3/InP(111)"                             (paper 13)
+#
+# Both then DOWNLOADED it, because the unverified arXiv guess was given
+# priority 2 while each paper's own known-good URL sat at priority 5, and
+# download_papers tries candidates in ascending priority order. 6.pdf and
+# 13.pdf on disk are byte-identical (md5 bf3ce1f1...), and S4 extracted the
+# LHCb author list from both.
+#
+# Consequences measured on the live corpus:
+#   - paper 6 alone contributed 635 knowledge rows: 58% of the whole
+#     corpus and 87% of the material axis, every value an author surname
+#     carrying an affiliation index ('Bediaga1', 'Miranda1', 'Gomes1')
+#   - papers 6 + 13 together consumed 152,332 of S5's 472,807 input
+#     characters — 32% of the extraction budget — on the wrong paper
+#
+# Two changes below: scope the query to the title field, and REQUIRE the
+# returned title to actually match before the URL is offered as a candidate.
+# ============================================================
+
+ARXIV_TITLE_MATCH_THRESHOLD = 0.75
 
 
 # ============================================================
@@ -90,37 +127,106 @@ def get_unpaywall_pdf(doi):
 # Unchanged — correct as written.
 # ============================================================
 
-def lookup_arxiv(doi=None, title=None):
-    try:
-        query = None
+def _normalise_title(t):
+    """Lowercase, strip markup and punctuation, collapse whitespace."""
+    if not t:
+        return ""
+    # Subscript/superscript tags are removed WITHOUT leaving a space, so a
+    # publisher's "Mn<sub>2</sub>In<sub>2</sub>Se<sub>5</sub>" normalises to
+    # the same string as arXiv's plain "Mn2In2Se5". Replacing them with a
+    # space instead splits the formula ('mn 2 in 2 se 5') and needlessly
+    # depresses the similarity score for a paper that is in fact the same.
+    t = re.sub(r"</?(?:sub|sup)>", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"<[^>]+>", " ", t)          # any other markup: treat as a break
+    t = t.lower()
+    t = re.sub(r"[^a-z0-9]+", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
 
+
+def titles_match(requested, returned, threshold=ARXIV_TITLE_MATCH_THRESHOLD):
+    """
+    Is `returned` plausibly the same paper as `requested`?
+
+    Uses a similarity ratio rather than equality because arXiv titles differ
+    from publisher titles in punctuation, subscript markup and line breaks.
+    The threshold only has to separate 'same paper, formatted differently'
+    from 'completely different paper', which is a wide gap: the LHCb title
+    scores 0.19 against the two In2Se3 titles it was returned for.
+    """
+    a, b = _normalise_title(requested), _normalise_title(returned)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    return difflib.SequenceMatcher(None, a, b).ratio() >= threshold
+
+
+def _parse_arxiv_entry(xml):
+    """Pull (abs_url, title) out of the first <entry> of an arXiv Atom feed."""
+    entry_start = xml.find("<entry>")
+    if entry_start == -1:
+        return None, None
+    entry = xml[entry_start:xml.find("</entry>", entry_start)]
+
+    id_m = re.search(r"<id>(http://arxiv\.org/abs/[^<]+)</id>", entry)
+    ti_m = re.search(r"<title>(.*?)</title>", entry, re.DOTALL)
+    return (id_m.group(1) if id_m else None,
+            (ti_m.group(1).strip() if ti_m else None))
+
+
+def lookup_arxiv(doi=None, title=None):
+    """
+    Find an arXiv PDF for a paper.
+
+    Returns (url, match_method) where match_method is 'doi' or 'title', or
+    (None, None). The caller uses the method to decide how much to trust it
+    — see the priority assignment in resolve_pdf().
+
+    A title-based hit is only returned when the arXiv title actually matches
+    the requested one. Previously any top hit was accepted; see the note at
+    the top of this module for what that cost.
+    """
+    try:
         if doi:
             query = f"doi:{doi}"
+            method = "doi"
         elif title:
-            query = title
+            # Scope to the title field. A bare free-text search matches
+            # abstracts and author names too, which is how an LHCb paper
+            # came back for an indium selenide title.
+            cleaned = _normalise_title(title)
+            if not cleaned:
+                return None, None
+            query = f'ti:"{cleaned}"'
+            method = "title"
+        else:
+            return None, None
 
-        if not query:
-            return None
-
-        url = "http://export.arxiv.org/api/query"
-        params = {"search_query": query, "max_results": 1}
-
-        res = requests.get(url, params=params, timeout=10)
-
+        res = requests.get(
+            "http://export.arxiv.org/api/query",
+            params={"search_query": query, "max_results": 5},
+            timeout=10,
+        )
         if res.status_code != 200:
-            return None
+            return None, None
 
-        if "<id>http://arxiv.org/abs/" in res.text:
-            start = res.text.find("<id>http://arxiv.org/abs/")
-            end = res.text.find("</id>", start)
+        abs_url, arxiv_title = _parse_arxiv_entry(res.text)
+        if not abs_url:
+            return None, None
 
-            abs_url = res.text[start + 4:end]
-            return abs_url.replace("/abs/", "/pdf/") + ".pdf"
+        # A DOI query is exact; a title query is not and must be verified.
+        if method == "title":
+            if not titles_match(title, arxiv_title):
+                print(f"[ARXIV] rejected mismatch for {title[:55]!r}")
+                print(f"[ARXIV]   arXiv returned {str(arxiv_title)[:70]!r}")
+                return None, None
+
+        return abs_url.replace("/abs/", "/pdf/") + ".pdf", method
 
     except Exception as e:
         print(f"[WARN] arXiv lookup error: {e}")
 
-    return None
+    return None, None
 
 
 # ============================================================
@@ -186,12 +292,23 @@ def resolve_pdf(repo, workflow_id, execution_attempt_id=None, **kwargs):
                 })
 
         # 3. ARXIV
-        arxiv_url = lookup_arxiv(doi=doi, title=title)
+        #
+        # Priority now depends on how the match was made. A DOI lookup is
+        # exact and stays ahead of the original URL. A title lookup is a
+        # similarity judgement, so even after verification it sits BEHIND
+        # the original URL (priority 5) rather than in front of it.
+        #
+        # This ordering is the second half of the paper-6 bug: an unverified
+        # title guess at priority 2 was tried before each paper's own known
+        # -good link at priority 5, so the correct URL was never fetched at
+        # all. Verification alone would have fixed the wrong content; this
+        # also makes the known-good source win when both are available.
+        arxiv_url, arxiv_method = lookup_arxiv(doi=doi, title=title)
         if is_valid_url(arxiv_url):
             candidates.append({
-                "source":   "arxiv",
+                "source":   f"arxiv:{arxiv_method}",
                 "url":      arxiv_url,
-                "priority": 2
+                "priority": 2 if arxiv_method == "doi" else 6
             })
 
         # 4. DEDUPLICATE by normalized URL, keep highest priority

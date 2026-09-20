@@ -50,6 +50,11 @@ class SectionStatus:
     REVISING        = "revising"
     APPROVED        = "approved"
     INTEGRATED      = "integrated"
+    # 2026-09-11: a section whose executor raised. Terminal like APPROVED for
+    # dependency purposes (dependents may still be written), but it is never
+    # returned by get_approved_sections_ordered(), so an undrafted section can
+    # no longer reach the final document as if it were approved.
+    FAILED          = "failed"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -81,7 +86,7 @@ class SectionNode:
             section_name = row["section_name"],
             section_type = row["section_type"],
             brief_json   = row["brief_json"],
-            depends_on   = json.loads(row["depends_on"] or "[]"),
+            depends_on   = json.loads(row["dependencies"] or "[]"),
             exec_order   = row["exec_order"],
             status       = row["status"],
         )
@@ -125,7 +130,7 @@ class SectionGraph:
         rows = self.repo.fetch_all(
             """
             SELECT id, section_name, section_type, brief_json,
-                   depends_on, exec_order, status
+                   dependencies, exec_order, status
             FROM GaneshSection
             WHERE document_id = ?
             ORDER BY exec_order ASC
@@ -156,7 +161,7 @@ class SectionGraph:
         """
         approved_names: Set[str] = {
             name for name, node in self._nodes.items()
-            if node.status in (SectionStatus.APPROVED, SectionStatus.INTEGRATED)
+            if node.status in (SectionStatus.APPROVED, SectionStatus.INTEGRATED, SectionStatus.FAILED)
         }
 
         for name, node in self._nodes.items():
@@ -194,6 +199,14 @@ class SectionGraph:
         self._update_status(section_name, SectionStatus.APPROVED)
         self._refresh_ready()
 
+    def mark_failed(self, section_name: str) -> None:
+        """Executor raised: record it as failed, then unlock dependents."""
+        self._update_status(section_name, SectionStatus.FAILED)
+        self._refresh_ready()
+
+    def get_failed_sections(self) -> List[str]:
+        return [name for name, node in self._nodes.items() if node.status == SectionStatus.FAILED]
+
     def mark_integrated(self, section_name: str) -> None:
         """Called by DocumentIntegrator when a section is merged into final doc."""
         self._assert_status(section_name, SectionStatus.APPROVED)
@@ -204,9 +217,9 @@ class SectionGraph:
     # ------------------------------------------------------------------
 
     def is_complete(self) -> bool:
-        """True when all sections are APPROVED or INTEGRATED."""
+        """True when every section is APPROVED, INTEGRATED or FAILED."""
         return all(
-            node.status in (SectionStatus.APPROVED, SectionStatus.INTEGRATED)
+            node.status in (SectionStatus.APPROVED, SectionStatus.INTEGRATED, SectionStatus.FAILED)
             for node in self._nodes.values()
         )
 

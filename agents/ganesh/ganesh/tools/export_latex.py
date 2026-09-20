@@ -7,10 +7,14 @@ pipeline -- runs after G5 has populated final_output.
 """
 import re
 import subprocess
+import os
 from pathlib import Path
 from datetime import datetime
 
-OUTPUT_DIR = Path("/mnt/d/brahm/data/outputs")
+# Was hardcoded to a WSL path (/mnt/d/brahm/...) until 2026-09-11 - the v1.1.1
+# path-portability pass never reached GANESH's tools. BRAHM_ROOT wins if set.
+_BRAHM_ROOT = Path(os.environ["BRAHM_ROOT"]) if os.environ.get("BRAHM_ROOT") else Path(__file__).resolve().parents[4]
+OUTPUT_DIR = _BRAHM_ROOT / "data" / "outputs"
 
 
 def _escape_latex(text: str) -> str:

@@ -124,6 +124,33 @@ class DocumentVisionResult:
 # YOLO MODEL LOADER
 # ────────────────────────────────────────────────────────────
 
+def _find_bundled_weights(weight_name: str) -> Optional[str]:
+    """
+    Locate DocLayout-YOLO weights shipped with the repo.
+
+    Searched in order: $BRAHM_ROOT/models, the repo root inferred from this
+    file's own location (so it works with BRAHM_ROOT unset or wrong), and the
+    library's usual cache directory. Returns None if nothing is found, leaving
+    the caller to fall back to the bare filename.
+    """
+    candidates = []
+    env_root = os.environ.get("BRAHM_ROOT", "").strip()
+    if env_root:
+        candidates.append(os.path.join(env_root, "models", weight_name))
+    # .../brahm/agents/shani/tools/s4_vision/s4a_document_vision.py -> .../brahm
+    repo_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    )
+    candidates.append(os.path.join(repo_root, "models", weight_name))
+    candidates.append(
+        os.path.join(os.path.expanduser("~"), ".cache", "doclayout_yolo", weight_name)
+    )
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    return None
+
+
 def _get_yolo_model():
     """
     Load DocLayout-YOLO once and cache globally.
@@ -144,8 +171,39 @@ def _get_yolo_model():
         # DocLayout-YOLO recommends the DocStructBench model.
         weight_name = "doclayout_yolo_docstructbench_imgsz1024.pt"
 
-        # Allow override via env var for offline environments
-        weight_path = os.environ.get("DOCLAYOUT_YOLO_WEIGHTS", weight_name)
+        # Allow override via env var for offline environments.
+        #
+        # FIX (2026-09-09): this was os.environ.get(KEY, weight_name). The
+        # repo's own agents/chitragupta/.env contains the line
+        #     DOCLAYOUT_YOLO_WEIGHTS=
+        # i.e. the variable IS set, to the empty string — so .get()'s default
+        # never applied and weight_path became "". YOLOv10("") does not raise
+        # at construction, so _YOLO_AVAILABLE was set True and every page then
+        # failed at inference with "model='.' is not a supported model format".
+        # Observed live: 36 failed inferences in a single S4 run, one per page,
+        # each paying image rendering and a model call for nothing.
+        #
+        # `or` rather than a default argument, so empty-string behaves like unset.
+        weight_path = os.environ.get("DOCLAYOUT_YOLO_WEIGHTS", "").strip()
+
+        # FIX (2026-09-10): with no env override the bare filename was handed to
+        # YOLOv10, which asks GitHub for an asset named "doclayout_yolo/assets"
+        # (404) and then raises FileNotFoundError — so layout detection was off
+        # on every machine that had not manually set the env var. The weights
+        # live in the repo at <repo>/models/, so look there before giving up.
+        if not weight_path:
+            weight_path = _find_bundled_weights(weight_name) or weight_name
+
+        # Validate before constructing. A bare filename is allowed (the library
+        # resolves it against its own cache and may download it); anything that
+        # looks like a path must actually exist, otherwise the failure surfaces
+        # per-page instead of here.
+        if os.sep in weight_path or weight_path.startswith("."):
+            if not os.path.isfile(weight_path):
+                raise FileNotFoundError(
+                    f"DOCLAYOUT_YOLO_WEIGHTS points at {weight_path!r}, "
+                    "which is not a file"
+                )
 
         device = _pick_device()
         _YOLO_MODEL     = YOLOv10(weight_path)
@@ -228,7 +286,21 @@ def _detect_regions_on_page(
             verbose=False,
         )
     except Exception as e:
+        # Circuit breaker (2026-09-09). A model that fails inference once will
+        # fail on every remaining page of every remaining paper — the failure
+        # is in the model, not the page. Previously each page paid a render
+        # plus a doomed predict() call and printed an identical line; a single
+        # S4 run logged 36 of them before this was added.
+        #
+        # Disabling globally makes S4A fall back to text extraction for the
+        # rest of the run (fallback_used=True), which is what the caller
+        # already handles when the model is absent altogether.
+        global _YOLO_AVAILABLE, _YOLO_MODEL
+        _YOLO_AVAILABLE = False
+        _YOLO_MODEL     = None
         print(f"[S4A]   YOLO inference failed p{page_num+1}: {e}")
+        print("[S4A]   disabling layout detection for the rest of this run "
+              "— falling back to text extraction")
         return []
 
     regions = []

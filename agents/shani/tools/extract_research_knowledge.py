@@ -26,10 +26,11 @@ import spacy
 from tools.text_cleaner import clean_scientific_text
 from tools.normalise_paper_content import run_normalisation
 from tools.relation_extractor import extract_relations
+from tools.keyword_match import keyword_in
 
 import repositories.paper_repo as paper_repo
 import repositories.paper_content_repo as pc_repo
-from services.llm_service import LLMService, OllamaClient, GeminiClient, CerebrasClient, GroqClient
+from services.llm_service import ensure_model_available, LLMService, OllamaClient, GeminiClient, CerebrasClient, GroqClient
 from services.vector_db_service import VectorDBService
 
 
@@ -99,13 +100,21 @@ _SKIP_ALWAYS = {
     "competing_interests",
     "figure_captions",
     "notes",
-    "preamble",
+    "front_matter",
 }
 
 # For EXPERIMENTAL papers, also skip these sections.
 _SKIP_EXPERIMENTAL = {
     "introduction", "i_introduction",
 }
+
+# Front matter is judged by content in normalisation (tools/front_matter.py,
+# decision D1 2026-09-11) and labelled "front_matter"; that label is skipped
+# here. "preamble" is no longer judged at all at this stage: it used to be
+# skipped by name (which dropped 84% of paper 20), then by size (<=4,000 chars
+# and <30% of the paper), which is the rule that dropped the abstracts of
+# papers 13, 15 and 17 along with their author blocks.
+
 
 def select_sections(sections: dict, paper_type: str) -> dict:
     """
@@ -115,14 +124,8 @@ def select_sections(sections: dict, paper_type: str) -> dict:
     skip = set(_SKIP_ALWAYS)
     if paper_type == "EXPERIMENTAL":
         skip |= _SKIP_EXPERIMENTAL
-
-    return {
-        name: text
-        for name, text in sections.items()
-        if name.lower().strip() not in skip
-           and text
-           and text.strip()
-    }
+    return {name: text for name, text in sections.items()
+            if text and text.strip() and name.lower().strip() not in skip}
 
 
 # ============================================================
@@ -256,7 +259,16 @@ def is_noise_sentence(sentence: str) -> bool:
     return False
 
 
-def is_valid_value(value: str, query_terms: set) -> bool:
+# 2026-09-11 (decision D11): for these categories a value is a name, not a
+# number, and requiring it to share a word with the workflow query dropped
+# 8 of 10 application values ('photodetectors', 'solar cells', 'ferroelectric
+# semiconductor field effect transistors') plus 'HAADF-STEM', 'excess Se' and
+# 'photoluminescence spectroscopy' on the replay. They still go through the
+# length/blocklist checks here and the placeholder check in is_valid_knowledge.
+RELAXED_VALUE_CATEGORIES = {"application", "defect_type", "characterization"}
+
+
+def is_valid_value(value: str, query_terms: set, category: str = None) -> bool:
     if not value or not value.strip():
         return False
     v = value.strip()
@@ -264,6 +276,8 @@ def is_valid_value(value: str, query_terms: set) -> bool:
         return False
     if v.lower() in VALUE_BLOCKLIST:
         return False
+    if category in RELAXED_VALUE_CATEGORIES:
+        return True
     if re.fullmatch(r"[A-Z]", v):
         return False
     if re.fullmatch(r"[A-Z]{3,5}", v):
@@ -292,6 +306,26 @@ _ELECTRICAL_UNITS = re.compile(
     r'cm2|V\b|nA|\u03bcA|mA\b|S\s*cm|S/cm|m\*)'
 )
 _JONES_RE    = re.compile(r'\bJones\b')
+
+# 2026-09-11 (decision D3): categories for quantities the 20-category schema
+# could not hold. Measured on a replay of the last full S5 run: MBE fluxes and
+# flux ratios arrived as doping_parameter and failed its unit check, paper 20's
+# dielectric constants (17, 6.29) failed optical_property's unit list, and 13
+# photodetector figures of merit were emitted under invented categories and
+# dropped. Each new category still requires a number plus a unit or a word that
+# says what the number is.
+_FLUX_RE = re.compile(
+    r'cm\s*(?:\^|\*\*)?\s*[-\u2212\u207b]\s*2|atoms?\s*/|/\s*cm2|\bBEP\b|beam[- ]equivalent|'
+    r'\bTorr\b|\bmbar\b|\bPa\b|\u00c5\s*/\s*(?:s|min)|\bA\s*/\s*s\b|nm\s*/\s*(?:s|min|h)|'
+    r'\bML\s*/\s*(?:s|min)|\u03bcm\s*/\s*h|um\s*/\s*h|\bratio\b|\b[A-Z][a-z]?\s*:\s*[A-Z][a-z]?\b|\bflux\b|\brate\b',
+    re.IGNORECASE)
+_FERRO_RE = re.compile(
+    r'pm\s*/\s*V|[\u03bcu\u00b5]C\s*/?\s*cm|kV\s*/\s*cm|MV\s*/\s*cm|\d\s*V\b|\u00b0C|\d\s*K\b|'
+    r'\bd33\b|\bd_?33\b|polari[sz]ation|coercive|curie', re.IGNORECASE)
+_PD_RE = re.compile(
+    r'\d\s*(?:[pnu\u03bc\u00b5m]?A\b|Jones|[mu\u03bc\u00b5n]?s\b|%|dB)|detectivity|dark current|'
+    r'photocurrent|rise time|decay time|response time|quantum efficiency|\bEQE\b', re.IGNORECASE)
+_DIELECTRIC_WORD_RE = re.compile(r'dielectric|permittivity|refractive|extinction|\u03b5', re.IGNORECASE)
 _ANNEAL_TEMP = re.compile(r'\d+\s*(?:\u00b0C|K\b)')
 _DOPING_UNITS = re.compile(
     r'\d\s*(?:at\.?%|wt\.?%|mol%|cm[\u207b\-]3|\u00d710)'
@@ -305,9 +339,172 @@ _GARBLED_MATERIAL_VALUES = {
     'cucrs258', 'cuinp2s616',  # confirmed: valid formula + appended citation number
 }
 
-# Matches a chemical-formula shape: 2-6 repeats of (Capital letter, optional
+# Matches a chemical-formula SHAPE: 2-6 repeats of (Capital letter, optional
 # lowercase letter, optional 1-2 digit subscript). e.g. CuCrS2, In2Se3, MoS2.
+# Shape alone is not enough — see _looks_like_material below.
 _ELEMENT_TOKEN_RE = re.compile(r'^(?:[A-Z][a-z]?\d{0,2}){2,6}$')
+
+# ── Positive material validation ─────────────────────────────────────────────
+#
+# Added 2026-09-09 after auditing the live In2Se3 corpus. The checks below this
+# point were all DENYLIST-shaped: a set of known-bad strings plus two narrow
+# regexes. That approach failed badly in practice.
+#
+# Paper 6 of workflow 2 contributed 605 distinct "material" values — 58% of the
+# entire knowledge corpus and 87% of the material axis. Every one of them was
+# an author surname carrying an affiliation index, harvested from a CERN LHCb
+# particle-physics paper that had been downloaded under an indium-selenide
+# title: 'Bediaga1', 'Miranda1', 'Rodrigues1', 'Gomes1', 'LHCb-PAPER-2014-049'.
+#
+# None were caught, because the existing shape rule was
+# `[A-Za-z]{2,4}\d{1,3}` with len<=7: 'Gomes1' has five letters (fails {2,4})
+# and 'Bediaga1' has seven. A denylist cannot anticipate an author list.
+#
+# The fix is to validate POSITIVELY: a material must decompose into real
+# periodic-table symbols. 'Gomes1' does not ('G' is not an element; Ga, Gd and
+# Ge are). Author names die as a class rather than one string at a time.
+
+_ELEMENTS = {
+    'H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S',
+    'Cl','Ar','K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga',
+    'Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb','Mo','Tc','Ru','Rh','Pd',
+    'Ag','Cd','In','Sn','Sb','Te','I','Xe','Cs','Ba','La','Ce','Pr','Nd','Pm',
+    'Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re','Os',
+    'Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn','Fr','Ra','Ac','Th','Pa',
+    'U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr','Rf','Db','Sg',
+    'Bh','Hs','Mt','Ds','Rg','Cn','Nh','Fl','Mc','Lv','Ts','Og',
+}
+
+# Greek/phase prefixes and decorations that legitimately attach to a formula:
+# alpha-In2Se3, β-In2Se3, 2H-MoS2, 1T'-MoS2.
+_PHASE_PREFIX_RE = re.compile(
+    r"^(?:[α-ω]|alpha|beta|gamma|delta|epsilon|kappa|"
+    r"\d+[HTRhtr]['′]?)[-‐-―\s]+",
+    re.IGNORECASE,
+)
+_FORMULA_TOKEN_RE = re.compile(r'([A-Z][a-z]?)(\d{0,3})')
+
+
+def _strip_phase_prefix(v: str) -> str:
+    prev = None
+    while prev != v:
+        prev = v
+        v = _PHASE_PREFIX_RE.sub('', v).strip()
+    return v
+
+
+# Descriptive words that legitimately trail or wrap a formula in extracted
+# text. Stripping them lets 'WZ-In2Se3 thin films' validate as In2Se3 rather
+# than being thrown away with the author names.
+_MATERIAL_DESCRIPTORS = (
+    'thin films', 'thin film', 'films', 'film', 'layers', 'layer',
+    'substrate', 'substrates', 'nanosheets', 'nanosheet', 'crystals',
+    'crystal', 'phase', 'phases', 'type', 'based', 'polymorph-pure',
+    'polymorph', 'c-plane', 'a-plane', 'monolayer', 'bulk', 'wz', 'zb',
+)
+# PDF text extraction frequently emits private-use glyphs for Greek letters
+# ( is gamma in several embedded fonts). Map the ones seen in this
+# corpus so 'γ-InSe' does not arrive as an unparseable character.
+_PUA_GREEK = {'': 'α', '': 'β', '': 'γ', '': 'δ'}
+
+# Subscripts this large are not chemistry — they are appended citation
+# numbers. Real subscripts in this corpus top out well below 10 (In2Se3,
+# CuInP2S6, Mn2In2Se5). See the note in _looks_like_material about the
+# single-digit case, which shape alone cannot resolve.
+_MAX_PLAUSIBLE_SUBSCRIPT = 9
+
+
+def _tokens_are_elements(candidate: str) -> bool:
+    """True when candidate decomposes cleanly into real element symbols."""
+    if not candidate:
+        return False
+    pos, tokens = 0, []
+    for m in _FORMULA_TOKEN_RE.finditer(candidate):
+        if m.start() != pos:      # a gap means an unparseable character
+            return False
+        sub = m.group(2)
+        if sub and int(sub) > _MAX_PLAUSIBLE_SUBSCRIPT:
+            return False          # 'GaSe59' = GaSe + citation 59
+        tokens.append(m.group(1))
+        pos = m.end()
+    if pos != len(candidate) or not tokens:
+        return False
+    return all(t in _ELEMENTS for t in tokens)
+
+
+def _strip_descriptors(v: str) -> str:
+    """Remove parentheticals, quotes and descriptive words around a formula."""
+    for pua, greek in _PUA_GREEK.items():
+        v = v.replace(pua, greek)
+    v = re.sub(r'\([^)]*\)', ' ', v)          # '(WZ type)', '(00l)'
+    v = re.sub(r'\[[^\]]*\]', ' ', v)         # '[identity matrix]'
+    v = v.replace('’', "'").replace('‘', "'")
+    v = re.sub(r"'", ' ', v)
+    for word in sorted(_MATERIAL_DESCRIPTORS, key=len, reverse=True):
+        v = re.sub(rf'(?<![A-Za-z]){re.escape(word)}(?![A-Za-z])', ' ',
+                   v, flags=re.IGNORECASE)
+    return re.sub(r'\s+', ' ', v).strip(" -‐–—/,")
+
+
+def _looks_like_material(v: str) -> bool:
+    """
+    Positive test: does this value look like a material rather than a name,
+    a citation key, or a sentence fragment?
+
+    Accepts:
+      - multi-element formulas: In2Se3, MoS2, CuInP2S6, Bi2Te3
+      - phase-prefixed formulas: alpha-In2Se3, beta-In2Se3, 2H-MoS2
+      - bare element symbols WITHOUT a subscript: Si, Ge, In, Se
+      - simple compound forms joined by / or - where each side qualifies:
+        In2Se3/Si, MoS2-WS2
+
+    Rejects:
+      - a bare element symbol WITH a subscript: 'Se3', 'Te3'. These are not
+        standalone materials in this corpus — they are the tail of a split
+        formula. 'Se3' appears 10 times and is In2Se3 with 'In2' lost; the
+        one paper titled "Molecular beam epitaxy synthesis of In2Se3 films"
+        has its material recorded as 'Se3'.
+      - anything whose tokens are not real elements: Gomes1, Bediaga1,
+        Universe3, Cousins30.
+    """
+    v = v.strip()
+    if not v:
+        return False
+
+    # Strip descriptive wrapping first, then phase prefixes, so that
+    # "WZ' type α-In2Se3 film" reduces to "In2Se3" rather than being
+    # discarded alongside the author names.
+    core = _strip_phase_prefix(_strip_descriptors(v))
+    core = _strip_phase_prefix(core)
+    if not core:
+        return False
+
+    # Split on / and - to handle heterostructures and hyphenated pairs, only
+    # after phase prefixes are gone so 'alpha-In2Se3' is not split.
+    parts = [p for p in re.split(r'[/‐-―-]', core) if p.strip()]
+    if not parts:
+        return False
+
+    for part in parts:
+        part = part.strip()
+        if part in _ELEMENTS:              # bare element, no subscript: fine
+            continue
+        if not _tokens_are_elements(part):
+            return False
+        # single element carrying a subscript => split-formula tail
+        m = list(_FORMULA_TOKEN_RE.finditer(part))
+        if len(m) == 1 and m[0].group(2):
+            return False
+    return True
+
+
+# KNOWN LIMIT, recorded rather than hidden: a SINGLE trailing digit cannot be
+# told from a real subscript by shape alone. 'SnTe6' is SnTe + citation 6, but
+# 'CuInP2S6' is a real formula ending in 6 — both parse identically. The signal
+# that resolves it is corpus-level, not per-value: if 'GaSe' also appears in the
+# corpus, then 'GaSe59' is almost certainly GaSe + a citation. That belongs in a
+# normalisation pass over the whole knowledge table, not in this per-value gate,
+# and is not implemented here. Values like 'SnTe6' therefore still get through.
 
 
 def _has_citation_contaminated_tail(v: str) -> bool:
@@ -343,12 +540,32 @@ _TECHNIQUE_LABELS = {
 }
 
 
+# The S5 prompt tells the model to OMIT anything not stated in the passage.
+# It often complies by emitting a placeholder instead - "not specified [FET
+# carrier mobility]", "14.56 [not specified unit, likely Torr or Pa]",
+# "CVD [inferred from the context ...]". Those passed every gate: the
+# "not specified" checks below existed only for material and
+# annealing_condition, and is_valid_value() counts the bracket qualifier as
+# value content, so "[photoresponsivity]" matched a query term. Measured
+# 2026-09-11: 21 stored rows (3.6% of the corpus), 10 of them paper 17's
+# numbers with units the model guessed. Enforce the omit rule for every
+# category, on the whole value including its qualifier.
+_PLACEHOLDER_RE = re.compile(
+    r"\bnot\s+(?:explicitly\s+)?(?:specified|reported|stated|mentioned|given|"
+    r"available|provided)\b|\binferred\b",
+    re.IGNORECASE,
+)
+
+
 def is_valid_knowledge(category: str, value: str, sentence: str) -> bool:
     if not value or not value.strip():
         return False
     v   = value.strip()
     vl  = v.lower()
     v_n = v.translate(_SUPERSCRIPT_MAP)
+
+    if _PLACEHOLDER_RE.search(v):
+        return False
 
     if category == "material":
         if len(v) > 40:
@@ -361,14 +578,29 @@ def is_valid_knowledge(category: str, value: str, sentence: str) -> bool:
             return False
         if "not specified" in vl or "not reported" in vl:
             return False
+        # Positive gate (2026-09-09). Everything above is a denylist and was
+        # comprehensively defeated by an author list — see _looks_like_material.
+        # This must stay LAST so the cheap known-bad checks still short-circuit.
+        if not _looks_like_material(v_n):
+            return False
         return True
 
     if category == "optical_property":
         if vl in _TECHNIQUE_LABELS or any(vl.startswith(t) for t in _TECHNIQUE_LABELS):
             return False
-        if not _OPTICAL_UNITS.search(v_n):
-            return False
-        return True
+        if _OPTICAL_UNITS.search(v_n):
+            return True
+        # dimensionless: dielectric constant, permittivity, refractive index
+        return bool(re.search(r'\d', v_n) and _DIELECTRIC_WORD_RE.search(v_n))
+
+    if category == "growth_flux":
+        return bool(re.search(r'\d', v_n) and _FLUX_RE.search(v_n)) and len(v) <= 120
+
+    if category == "ferroelectric_property":
+        return bool(re.search(r'\d', v_n) and _FERRO_RE.search(v_n))
+
+    if category == "photodetector_metric":
+        return bool(re.search(r'\d', v_n) and _PD_RE.search(v_n))
 
     if category == "electrical_property":
         if vl in _TECHNIQUE_LABELS:
@@ -420,33 +652,161 @@ def extract_keywords(query: str) -> set:
 # PAPER RELEVANCE SCORING
 # ============================================================
 
-def jaccard_title(title, query_terms):
-    words = {w.lower() for w in re.findall(r"\b\w+\b", title)}
+# Publishers typeset formulae with Unicode sub/superscript digits: "In₂Se₃",
+# not "In2Se3". Every scorer here matches exact tokens against query terms that
+# S1 generates in ASCII, so a title written that way scores ZERO on the corpus's
+# own subject. Observed 2026-09-10: "Fabrication of ᵞ-In₂Se₃-Based Photodetector"
+# tokenised to 'in₂se₃', missed the 'in2se3' query term, scored 0.023 against a
+# 0.03 threshold and was skipped - one of the most on-topic papers in the set.
+_DIGIT_FOLD = {}
+for _i, (_sub, _sup) in enumerate(zip("₀₁₂₃₄₅₆₇₈₉", "⁰¹²³⁴⁵⁶⁷⁸⁹")):
+    _DIGIT_FOLD[ord(_sub)] = str(_i)
+    _DIGIT_FOLD[ord(_sup)] = str(_i)
+
+
+def fold_digits(text: str) -> str:
+    """Map Unicode sub/superscript digits to ASCII so formulae tokenise."""
+    return (text or "").translate(_DIGIT_FOLD)
+
+
+# ── Term specificity ────────────────────────────────────────────────────────
+# The query is built by flattening every WorkflowResearchConfig field into one
+# string, which throws away the one thing the config actually knows: which term
+# is the SUBJECT and which are generic technique words. Every term then weighed
+# the same, so 'beam' + 'epitaxy' outscored 'in2se3'.
+#
+# Measured on workflow 1 (2026-09-10): the gate admitted a BaBiO3-on-SrTiO3
+# paper at 0.035 and rejected two In2Se3 papers at 0.029, against a 0.03
+# threshold - separating those decisions by 0.006, with the sign backwards.
+#
+# Weights come from the field a term arrived in, not from a hand-written list,
+# so they follow whatever the user configured for the workflow. They are chosen
+# so the total weight stays close to the term count and MIN_PAPER_SCORE keeps
+# its meaning.
+FIELD_WEIGHTS = {
+    "material":         3.0,   # the subject of the review - decisive
+    "structure":        1.5,
+    "focus":            1.5,   # what the review is asking about
+    "properties":       1.5,
+    "method":           0.5,   # MBE/CVD: shared by most papers in any corpus
+    "characterization": 0.5,   # XRD/Raman/TEM: likewise
+}
+GENERIC_TERM_WEIGHT = 0.5      # the hardcoded defect/carrier/bandgap tail
+DEFAULT_TERM_WEIGHT = 1.0
+
+
+def build_term_weights(config, generic_text=""):
+    """
+    Map each query term to a weight based on which config field produced it.
+    Highest weight wins when a term appears in several fields.
+    """
+    weights = {}
+
+    def add(text, weight):
+        if not text:
+            return
+        for term in extract_keywords(text):
+            if weights.get(term, 0) < weight:
+                weights[term] = weight
+
+    for field, weight in FIELD_WEIGHTS.items():
+        try:
+            value = config[field] if config is not None else None
+        except (KeyError, IndexError):
+            value = None          # sqlite3.Row raises when the column wasn't selected
+        add(value, weight)
+    add(generic_text, GENERIC_TERM_WEIGHT)
+    return weights
+
+
+def _weight_of(term, term_weights):
+    return term_weights.get(term, DEFAULT_TERM_WEIGHT) if term_weights else 1.0
+
+
+def _weighted_hits(words, query_terms, term_weights):
+    return sum(_weight_of(w, term_weights) for w in words if w in query_terms)
+
+
+def jaccard_title(title, query_terms, term_weights=None):
+    words = {w.lower() for w in re.findall(r"\b\w+\b", fold_digits(title))}
     if not words:
         return 0
-    return len(words & query_terms) / len(words | query_terms)
+    return _weighted_hits(words, query_terms, term_weights) / len(words | query_terms)
 
 
-def abstract_density(text, query_terms):
-    words = re.findall(r"\b\w+\b", text.lower())[:1000]
+def abstract_density(text, query_terms, term_weights=None):
+    words = re.findall(r"\b\w+\b", fold_digits(text).lower())[:1000]
     if not words:
         return 0
-    return sum(1 for w in words if w in query_terms) / len(words)
+    return _weighted_hits(words, query_terms, term_weights) / len(words)
 
 
-def title_overlap(title, query_terms):
-    words = {w.lower() for w in re.findall(r"\b\w+\b", title)}
+def title_overlap(title, query_terms, term_weights=None):
+    words = {w.lower() for w in re.findall(r"\b\w+\b", fold_digits(title))}
     if not query_terms:
         return 0
-    return len(words & query_terms) / len(query_terms)
+    total = sum(_weight_of(t, term_weights) for t in query_terms)
+    if not total:
+        return 0
+    return _weighted_hits(words, query_terms, term_weights) / total
 
 
-def compute_score(title, text_sample, query_terms):
-    """Lightweight score using title + first 1000 chars of available text."""
+# ── Subject-element affinity ────────────────────────────────────────────────
+# Weighting terms by config field fixed the BaBiO3 case but broke two others:
+# "MBE of Mn2In2Se5 van der Waals Layers" and "Mixed polytype/polymorph
+# formation ... in InSe" both dropped below threshold, because neither
+# 'mn2in2se5' nor 'inse' is a query term - only the exact string 'in2se3' is.
+# Both papers are squarely on-topic for an In2Se3 polymorphism review: one is
+# an In-Se compound, the other the parent binary.
+#
+# Exact-token matching cannot see that. Element sets can: parse formula-shaped
+# tokens out of the title and compare their elements to the subject material's.
+# Case matters for parsing ('InSe' is In+Se, 'inse' is ambiguous), so this runs
+# on the ORIGINAL-CASE title, before the lowercasing the other scorers do.
+SUBJECT_COMPOUND_AFFINITY = 1.0    # title names a compound of ALL subject elements
+SHARED_ELEMENT_AFFINITY   = 0.4    # ...of some of them
+AFFINITY_WEIGHT           = 0.05   # a strong nudge, not a veto
+
+
+def subject_elements(material: str) -> set:
+    """Element symbols in the workflow's subject material. 'In2Se3' -> {In, Se}."""
+    if not material:
+        return set()
+    core = _strip_phase_prefix(material.strip())
+    return {m.group(1) for m in _FORMULA_TOKEN_RE.finditer(core)
+            if m.group(1) in _ELEMENTS}
+
+
+def material_affinity(title: str, subj_elements: set) -> float:
+    """
+    Does the title name a material built from the subject's elements?
+    Returns the best match found: full, partial, or none.
+    """
+    if not subj_elements or not title:
+        return 0.0
+    best = 0.0
+    for token in re.findall(r"[A-Za-z][A-Za-z0-9]*", fold_digits(title)):
+        if not _looks_like_material(token):
+            continue
+        els = {m.group(1) for m in _FORMULA_TOKEN_RE.finditer(token)
+               if m.group(1) in _ELEMENTS}
+        if not els:
+            continue
+        if subj_elements <= els:
+            return SUBJECT_COMPOUND_AFFINITY
+        if subj_elements & els:
+            best = max(best, SHARED_ELEMENT_AFFINITY)
+    return best
+
+
+def compute_score(title, text_sample, query_terms, term_weights=None,
+                  subj_elements=None):
+    """Relevance score from the title and a sample of the paper's own text."""
     return min(
-        0.4 * jaccard_title(title, query_terms)
-        + 0.35 * abstract_density(text_sample, query_terms)
-        + 0.25 * title_overlap(title, query_terms),
+        0.4 * jaccard_title(title, query_terms, term_weights)
+        + 0.35 * abstract_density(text_sample, query_terms, term_weights)
+        + 0.25 * title_overlap(title, query_terms, term_weights)
+        + AFFINITY_WEIGHT * material_affinity(title, subj_elements or set()),
         1,
     )
 
@@ -854,7 +1214,7 @@ def run_sentence_rules(full_text: str, query_terms: set) -> list:
 
         # ── Characterisation keywords (substring) ─────────────
         for kw, label in CHAR_KEYWORDS.items():
-            if kw in s_lower:
+            if keyword_in(kw, s_lower):
                 results.append({
                     "category":       "characterization",
                     "value":          label,
@@ -868,7 +1228,7 @@ def run_sentence_rules(full_text: str, query_terms: set) -> list:
 
         # ── Synthesis keywords (substring) ────────────────────
         for kw, label in SYNTH_KEYWORDS.items():
-            if kw in s_lower:
+            if keyword_in(kw, s_lower):
                 results.append({
                     "category":       "synthesis_method",
                     "value":          label,
@@ -882,7 +1242,7 @@ def run_sentence_rules(full_text: str, query_terms: set) -> list:
 
         # ── Defect keywords ───────────────────────────────────
         for kw, label in DEFECT_KEYWORDS.items():
-            if kw in s_lower:
+            if keyword_in(kw, s_lower):
                 results.append({
                     "category":       "defect_type",
                     "value":          label,
@@ -939,7 +1299,8 @@ Return a JSON array. Each item must have exactly two keys:
     annealing_condition | optical_property | electrical_property |
     growth_temperature | chamber_pressure | gas_flow | growth_duration |
     field_effect_mobility | on_off_ratio | threshold_voltage |
-    subthreshold_swing | contact_resistance | photoresponsivity
+    subthreshold_swing | contact_resistance | photoresponsivity |
+    growth_flux | ferroelectric_property | photodetector_metric
   "value": the extracted value as stated in the passage
 
 QUALIFIER RULE — mandatory for ALL numeric values:
@@ -961,7 +1322,8 @@ CATEGORY RULES:
 - gas_flow: carrier gas, precursor gas, or flow rates during growth (sccm, slm).
 - growth_duration: deposition or growth time (min, hours, seconds).
 - annealing_condition: post-deposition annealing/sintering/calcination ONLY. NOT growth temp.
-- optical_property: bandgap (eV), PL peak (nm/eV), absorption edge ONLY. NOT XPS photon energy.
+- optical_property: bandgap (eV), PL peak (nm/eV), absorption edge, dielectric constant /
+  permittivity and refractive index (these may be dimensionless). NOT XPS photon energy.
 - electrical_property: carrier lifetime, resistivity, carrier density ONLY.
 - field_effect_mobility: FET carrier mobility in cm²/V·s.
 - on_off_ratio: FET Ion/Ioff ratio (dimensionless).
@@ -970,6 +1332,12 @@ CATEGORY RULES:
 - contact_resistance: Rc in Ω·μm or kΩ·μm.
 - photoresponsivity: R in A/W or mA/W.
 - synthesis_method: technique name only (CVD, MBE, ALD etc). NOT parameters.
+- growth_flux: source/beam flux, beam-equivalent pressure (BEP) of a source, flux ratio
+  (e.g. Se:In), growth or deposition rate.
+- ferroelectric_property: polarization (uC/cm2), piezoelectric coefficient d33 (pm/V),
+  coercive field (kV/cm) or coercive voltage (V), Curie temperature.
+- photodetector_metric: dark current, photocurrent, detectivity (Jones), external quantum
+  efficiency, rise/decay (response) time. Responsivity goes in photoresponsivity.
 
 OMIT if:
 - The value is not explicitly stated in the passage.
@@ -982,6 +1350,43 @@ Passage:
 \"\"\"
 
 JSON array:"""
+
+
+# ── Evidence for LLM items ───────────────────────────────────────────────────
+# LLM items used to store chunk[:300] as their `sentence` — the first 300 chars
+# of a 3,500-char chunk, whatever the value was. Measured 2026-09-11: of 254
+# live LLM rows mapped back to their chunks, the stored `sentence` contained the
+# value for only 59 (23%), while 225 (89%) of the values were in the chunk.
+# GANESH reads that column as the context for each claim, so a review would
+# cite text that does not say what it claims.
+# Locate the sentence that actually carries the value; fall back to the old
+# behaviour only when it cannot be found.
+_SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9(\[])")
+_EVIDENCE_NUM_RE = re.compile(r"\d+(?:\.\d+)?")
+EVIDENCE_MAX_CHARS = 500
+
+
+def _has_number(n: str, text: str) -> bool:
+    # '5' must not match inside '15' or '0.5'
+    return re.search(r"(?<![\d.])" + re.escape(n) + r"(?![\d])", text) is not None
+
+
+def evidence_sentence(chunk: str, value: str) -> str:
+    core = re.sub(r"\s*\[[^\]]*\]\s*", " ", value or "").strip()
+    nums = _EVIDENCE_NUM_RE.findall(core)
+    sentences = [x.strip() for x in _SENT_SPLIT_RE.split(chunk or "") if x.strip()]
+    if nums:
+        hit = next((x for x in sentences if all(_has_number(n, x) for n in nums)), None)
+        if hit is None and len(sentences) > 1:
+            # a value can straddle a sentence boundary the splitter invented
+            pairs = (a + " " + b for a, b in zip(sentences, sentences[1:]))
+            hit = next((x for x in pairs if all(_has_number(n, x) for n in nums)), None)
+    else:
+        needle = core.lower()
+        hit = next((x for x in sentences if needle and needle in x.lower()), None)
+    if hit:
+        return hit[:EVIDENCE_MAX_CHARS]
+    return (chunk or "")[:300]
 
 
 def run_llm_chunks(
@@ -1012,12 +1417,12 @@ def run_llm_chunks(
 
         for item in items:
             val = item.get("value", "")
-            if not is_valid_value(val, query_terms):
+            if not is_valid_value(val, query_terms, item.get("category")):
                 continue
             results.append({
                 "category":       item.get("category", "material"),
                 "value":          val,
-                "sentence":       chunk[:300],   # representative context
+                "sentence":       evidence_sentence(chunk, val),
                 "section_source": section_name,
                 "equation_id":    None,
                 "source_type":    "llm",
@@ -1050,6 +1455,7 @@ _UNIT_ALIASES: dict = {
 _PARAM_CATEGORIES = {
     "doping_parameter", "annealing_condition",
     "optical_property", "electrical_property", "defect_type",
+    "growth_flux", "ferroelectric_property", "photodetector_metric",
 }
 
 _NUM_RE  = re.compile(r"(\d+(?:\.\d+)?)")
@@ -1177,7 +1583,7 @@ def extract_equation_knowledge(
         ctx_lower      = context.lower()
 
         for kw, label in CHAR_KEYWORDS.items():
-            if kw in ctx_lower:
+            if keyword_in(kw, ctx_lower):
                 knowledge.append({
                     "category":       "characterization",
                     "value":          label,
@@ -1197,7 +1603,8 @@ def extract_equation_knowledge(
             'defect_type|doping_parameter|annealing_condition|optical_property|'
             'electrical_property|growth_temperature|chamber_pressure|gas_flow|'
             'growth_duration|field_effect_mobility|on_off_ratio|threshold_voltage|'
-            'subthreshold_swing|contact_resistance|photoresponsivity",'
+            'subthreshold_swing|contact_resistance|photoresponsivity|'
+            'growth_flux|ferroelectric_property|photodetector_metric",'
             '"value":"short name or value with unit [context]"}\n'
             "Numeric values MUST include context in brackets e.g. \"2.7 eV [optical bandgap]\".\n\n"
             f'Context: "{context[:250]}"\n\nJSON array:'
@@ -1207,7 +1614,7 @@ def extract_equation_knowledge(
             items = service.extract(prompt, stage="S5_eq")
             for item in items:
                 val = item.get("value", "")
-                if is_valid_value(val, query_terms):
+                if is_valid_value(val, query_terms, item.get("category")):
                     knowledge.append({
                         "category":       item["category"],
                         "value":          val,
@@ -1254,9 +1661,15 @@ def extract_research_knowledge(repo, workflow_id, execution_attempt_id=None, **k
         "bandgap photocurrent recombination trap"
     )
 
-    query       = " ".join(q for q in query_parts if q).strip() or "materials science research"
-    query_terms = extract_keywords(query)
+    generic_terms_text = query_parts[-1]
+
+    query        = " ".join(q for q in query_parts if q).strip() or "materials science research"
+    query_terms  = extract_keywords(query)
+    term_weights = build_term_weights(config, generic_terms_text)
+    subj_elements = subject_elements(config["material"] if config else "")
     print(f"[S5] Query terms: {sorted(query_terms)}")
+    print("[S5] Term weights: " + ", ".join(
+        f"{t}={term_weights[t]:g}" for t in sorted(term_weights, key=lambda t: (-term_weights[t], t))))
 
     # ── Fetch papers ──────────────────────────────────────────
     papers = repo.fetch_all(
@@ -1270,7 +1683,12 @@ def extract_research_knowledge(repo, workflow_id, execution_attempt_id=None, **k
     )
     print(f"[S5] Papers at status='{PIPELINE_STATUS.S5_INPUT}': {len(papers)}")
 
-    llm     = OllamaClient("llama3.1:8b-instruct-q3_k_m")
+    # Model comes from DEFAULT_LOCAL_MODEL / SHANI_LOCAL_MODEL (see the
+    # benchmark table in services/llm_service.py). Verified before the loop
+    # so a missing model fails once, loudly, instead of 404-ing every chunk
+    # while the stage still reports success.
+    ensure_model_available()
+    llm     = OllamaClient()
     service = LLMService(llm)
 
     run_normalisation(workflow_id)
@@ -1304,15 +1722,22 @@ def extract_research_knowledge(repo, workflow_id, execution_attempt_id=None, **k
 
         # ── 2. Relevance score ────────────────────────────────
         # Use abstract section if available, else first 1000 chars of raw_text
-        text_sample = (
-            sections.get("abstract", "")
-            or sections.get("preamble", "")
-            or raw_text[:1000]
-        )
-        score = compute_score(title, text_sample, query_terms)
+        # abstract_density is 35% of the score, and it needs actual body text.
+        # This used to read abstract -> preamble -> raw_text[:1000]; when S4
+        # emitted neither an abstract nor a preamble section - 7 of 9 papers in
+        # workflow 1 - it silently scored the paper on raw_text's first 1000
+        # chars, which for a PDF is the title block, authors and affiliations.
+        # Sampling every section instead measures the paper, not its cover page.
+        text_sample = sections.get("abstract", "") or " ".join(
+            (body or "")[:1500] for body in sections.values()
+        ) or raw_text[:5000]
+        score = compute_score(title, text_sample, query_terms, term_weights,
+                              subj_elements)
 
         if score < MIN_PAPER_SCORE:
-            print(f"[S5] SKIP (score={score:.3f}): {title[:70]}")
+            hits = sorted(
+                {w.lower() for w in re.findall(r"\b\w+\b", fold_digits(title))} & query_terms)
+            print(f"[S5] SKIP (score={score:.3f}, title terms={hits}): {title[:70]}")
             paper_repo.update_paper_status(repo, paper_id, PIPELINE_STATUS.S5_OUTPUT)
             skipped += 1
             continue
@@ -1402,6 +1827,16 @@ def extract_research_knowledge(repo, workflow_id, execution_attempt_id=None, **k
         embedding_batch: list = []
 
         with repo.transaction() as cursor:
+            # Replace, don't append (D5/D8, 2026-09-11). Re-running S5 on a
+            # paper used to add a second copy of its rows and relations, so
+            # every reset needed a hand-written DELETE - and relations were
+            # always forgotten: 397 of 1,792 (22%) came from runs whose
+            # knowledge had been deleted. The abstract-path rows (S2_75) are
+            # a different stage and are left alone.
+            cursor.execute(
+                "DELETE FROM ResearchKnowledge WHERE paper_id = ? "
+                "AND source_type IN ('llm', 'rule', 'pattern')", (paper_id,))
+            cursor.execute("DELETE FROM ResearchRelation WHERE paper_id = ?", (paper_id,))
             for r in relations:
                 try:
                     cursor.execute(
@@ -1469,6 +1904,16 @@ def extract_research_knowledge(repo, workflow_id, execution_attempt_id=None, **k
         print(f"[S5] Done paper {paper_id}: {len(knowledge)} knowledge items")
 
     print(f"\n[S5] Complete: {processed} processed | {skipped} skipped")
+
+    # ── Reconcile the vector index with the DB (D4, 2026-09-11) ───
+    try:
+        import sqlite3
+        from tools.normalise_paper_content import DB_PATH
+        from tools.vector_index_maintenance import rebuild_vector_index
+        with sqlite3.connect(DB_PATH) as _conn:
+            rebuild_vector_index(_conn, vector_service)
+    except Exception as ve:
+        print(f"[S5][VECTOR REBUILD ERROR] {ve}")
 
     # ── Aggregation ───────────────────────────────────────────
     aggregation = {}

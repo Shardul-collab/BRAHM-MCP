@@ -19,9 +19,13 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime
+import os
 from pathlib import Path
 
-GANESH_ROOT = Path("/mnt/d/brahm/agents/ganesh")
+# Was hardcoded to a WSL path (/mnt/d/brahm/...) until 2026-09-11 - the v1.1.1
+# path-portability pass never reached GANESH's tools. BRAHM_ROOT wins if set.
+_BRAHM_ROOT = Path(os.environ["BRAHM_ROOT"]) if os.environ.get("BRAHM_ROOT") else Path(__file__).resolve().parents[4]
+GANESH_ROOT = _BRAHM_ROOT / "agents" / "ganesh"
 if str(GANESH_ROOT) not in sys.path:
     sys.path.insert(0, str(GANESH_ROOT))
 

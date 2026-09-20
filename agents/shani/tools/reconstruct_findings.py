@@ -15,7 +15,7 @@
 
 import json
 import time
-from services.llm_service import OllamaClient, LLMService, parse_json_array
+from services.llm_service import ensure_model_available, OllamaClient, LLMService, parse_json_array
 
 
 # ============================================================
@@ -100,7 +100,10 @@ def _validate_finding(item: dict) -> bool:
 
 def reconstruct_findings(repo, workflow_id, execution_attempt_id=None, **kwargs):
 
-    llm     = OllamaClient("llama3.1:8b-instruct-q3_k_m")
+    # Model comes from DEFAULT_LOCAL_MODEL / SHANI_LOCAL_MODEL; verified up
+    # front so a missing model fails here rather than once per chunk.
+    ensure_model_available()
+    llm     = OllamaClient()
     service = LLMService(llm)
 
     # Fetch papers that are knowledge_ready and not yet in S55Checkpoint

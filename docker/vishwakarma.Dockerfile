@@ -35,6 +35,24 @@ RUN /opt/conda/bin/pip install --no-cache-dir -r requirements.txt
 COPY brahm brahm
 COPY mcp_server.py mcp_server.py
 
+# Found 2026-09-09 by static inspection (no Docker on the Linux box, so this
+# is NOT confirmed by a rebuild — re-verify on the WSL2 machine).
+#
+# The image copied brahm/ and mcp_server.py but never agents/, while
+# BRAHM_ROOT=/app above makes mcp_server.py insert /app/agents/vishwakarma
+# on sys.path — a directory that did not exist in the image. Every handler
+# in brahm/agents/vishwakarma.py does `from vishwakarma import ...` lazily,
+# inside its worker function, so the MCP server still STARTED cleanly and
+# registered all 13 tools; each one then failed at call time with
+# ModuleNotFoundError. The v1.2.0 smoke test did not catch this because it
+# invokes pw.x directly and never touches the Python layer, and the
+# HEALTHCHECK only tests `test -x pw.x`.
+#
+# pseudo/ and jobs/ are deliberately excluded — pseudo/ is bind-mounted per
+# docker-compose.yml (QE_PSEUDO_HOST_DIR) and jobs/ is a named volume.
+COPY agents/vishwakarma/vishwakarma agents/vishwakarma/vishwakarma
+COPY agents/vishwakarma/vishwakarma_api.py agents/vishwakarma/vishwakarma_api.py
+
 # No pseudopotentials baked into the image (confirmed decision 2026-08-11:
 # bind-mount instead, via QE_PSEUDO_HOST_DIR in .env -- see docker-compose.yml).
 # Note: agents/vishwakarma/pseudo/ on the host IS populated (confirmed via
@@ -60,7 +78,13 @@ ENV HOME=/home/brahm
 # (including --version) is ignored and it exits nonzero waiting on stdin,
 # so invoking it here would always report unhealthy even on a working
 # container. Check binary presence/executability instead.
+# Also import the Python layer. The binary-only check above passed happily on
+# an image whose MCP tools all raised ModuleNotFoundError (see the COPY note),
+# so "healthy" meant nothing more than "QE is installed". runner imports only
+# stdlib, so this stays cheap and does not depend on numpy/pydantic.
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD test -x /opt/conda/envs/qe/bin/pw.x || exit 1
+    CMD test -x /opt/conda/envs/qe/bin/pw.x \
+        && /opt/conda/bin/python -c "import sys; sys.path.insert(0, '/app/agents/vishwakarma'); import vishwakarma.runner" \
+        || exit 1
 
 CMD ["tail", "-f", "/dev/null"]

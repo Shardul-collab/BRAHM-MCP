@@ -1,7 +1,29 @@
-import sqlite3, sys
-DB_PATH = "/mnt/d/brahm/agents/shani/database/research_workflow.db"
-DEFAULT_WORKFLOW_ID = 2
-NOISE_EXACT = {"references","reference","referen_es","refernces","referencias","kaynaklar_references","references_cc","references_notes","references_and_notes","references_for_main_text","references_for_method_section","supplementary_references","viii_references","1_references","3_references","4_references","7_references","bibliography","acknowledgements","acknowledgement","acknowledgments","acknowledgment","v_acknowledgements","vi_acknowledgements","1_acknowledgements","agradecimientos","kno_wledgemen_ts","a_kno_wledgemen_ts","author_contributions","author_contribution","author_contribution_statement","author_declarations","author_information","authors_contribution","authors_contributions","author_details_1","contributions","yazarlarin_katkilari_authors_contributions","contribucin_de_los_autores","data_availability","data_availability_statement","data_availability_statements","code_availability","date_and_code_availability","availability_of_data_and_materials","competing_interests","competing_financial_interests","conflict_of_interest","conflicts_of_interest","declaration_of_competing_interest","declaration_of_interests","ikar_atimasi_conflict_of_interest","conflicto_de_intereses","funding","additional_information","supplementary_information","supplementary_material","supplementary_materials","supplementary_files","supporting_information","supporting_material","supporting","copyright","orcid","orcid_ids","open_access","reporting_summary","publishers_note","check_for_updates","just_accepted","just_accepted_j","correspondence","corresponding_author","corresponding_authors","correspondencia","edited_by","reviewed_by","specialty_section","reprints_and_permissions_information_is_available_at_http_wwwnaturecom_reprints","graphical_abstract","grafik_zet_graphical_abstract","highlights","nemli_noktalar_highlights","figure_captions","figures","tables","editors_summary","editorial_summary","keywords","abbreviations","declarations","citation","article","article_in_press","article_info","associated_content","preamble","use_of_ai_statement","declaration_of_generative_ai_and_aiassisted_technologies_in_the_writing_process","note_added_in_proof","ethics_statement_not_applicable_cep","declaration_of_ethical_standards","informed_consent","1_1_2_3_1_1_1","o_o_o_o","table_of_contents","table_of_content","list_of_figures","list_of_publications","committee","dissertation","co_authored_journal_publications","conference_presentations","journal_publications"}
+import sqlite3, sys, os
+from pathlib import Path
+
+try:
+    from tools.front_matter import is_front_matter, split_at_abstract
+    from tools.embedded_references import strip_trailing_references
+except ImportError:  # imported with tools/ itself on sys.path (tests, standalone)
+    from front_matter import is_front_matter, split_at_abstract
+    from embedded_references import strip_trailing_references
+
+# Resolved relative to this file, matching repositories/repository.py.
+# Was hardcoded to "/mnt/d/brahm/agents/shani/database/research_workflow.db"
+# until 2026-09-09 — the fifth such WSL literal found in this repo, and the
+# one that killed S5 on Linux with "unable to open database file". S5 calls
+# run_normalisation() before extracting, so this took the whole stage down.
+# BRAHM_ROOT still wins if set, for containers that relocate the tree.
+_DEFAULT_DB = Path(__file__).resolve().parents[1] / "database" / "research_workflow.db"
+DB_PATH = os.environ.get("SHANI_DB_PATH") or (
+    str(Path(os.environ["BRAHM_ROOT"]) / "agents/shani/database/research_workflow.db")
+    if os.environ.get("BRAHM_ROOT") else str(_DEFAULT_DB)
+)
+
+# Only a fallback for running this module standalone; every real caller
+# passes workflow_id explicitly. Was 2, a leftover from a specific workflow.
+DEFAULT_WORKFLOW_ID = None
+NOISE_EXACT = {"references","reference","referen_es","refernces","referencias","kaynaklar_references","references_cc","references_notes","references_and_notes","references_for_main_text","references_for_method_section","supplementary_references","viii_references","1_references","3_references","4_references","7_references","bibliography","acknowledgements","acknowledgement","acknowledgments","acknowledgment","v_acknowledgements","vi_acknowledgements","1_acknowledgements","agradecimientos","kno_wledgemen_ts","a_kno_wledgemen_ts","author_contributions","author_contribution","author_contribution_statement","author_declarations","author_information","authors_contribution","authors_contributions","author_details_1","contributions","yazarlarin_katkilari_authors_contributions","contribucin_de_los_autores","data_availability","data_availability_statement","data_availability_statements","code_availability","date_and_code_availability","availability_of_data_and_materials","competing_interests","competing_financial_interests","conflict_of_interest","conflicts_of_interest","declaration_of_competing_interest","declaration_of_interests","ikar_atimasi_conflict_of_interest","conflicto_de_intereses","funding","additional_information","supplementary_information","supplementary_material","supplementary_materials","supplementary_files","supporting_information","supporting_material","supporting","copyright","orcid","orcid_ids","open_access","reporting_summary","publishers_note","check_for_updates","just_accepted","just_accepted_j","correspondence","corresponding_author","corresponding_authors","correspondencia","edited_by","reviewed_by","specialty_section","reprints_and_permissions_information_is_available_at_http_wwwnaturecom_reprints","graphical_abstract","grafik_zet_graphical_abstract","highlights","nemli_noktalar_highlights","figure_captions","figures","tables","editors_summary","editorial_summary","keywords","abbreviations","declarations","citation","article","article_in_press","article_info","associated_content","use_of_ai_statement","declaration_of_generative_ai_and_aiassisted_technologies_in_the_writing_process","note_added_in_proof","ethics_statement_not_applicable_cep","declaration_of_ethical_standards","informed_consent","1_1_2_3_1_1_1","o_o_o_o","table_of_contents","table_of_content","list_of_figures","list_of_publications","committee","dissertation","co_authored_journal_publications","conference_presentations","journal_publications"}
 NOISE_PREFIXES = ("received_","accepted_","supplementary_note_","supplementary_text_","supporting_information_","acknowledgements_","acknowledgments_","data_availability_","declaration_of_competing_interest_","author_contributions_","figure_","eq_")
 NOISE_SUFFIXES = ("_references","_acknowledgements","_acknowledgments","_acknowledgement")
 RENAME_EXACT = {"abstra_t":"abstract","abstrct":"abstract","i_abstract":"abstract","i_introduction":"introduction","ii_introduction":"introduction","1_introduction":"introduction","in_tro_du_tion":"introduction","introduction_j":"introduction","giri_introduction":"introduction","introduction_history_and_events":"introduction","ii_methods":"methods","2_methods":"methods","experimental":"methods","experimental_section":"methods","experimental_method":"methods","experimental_methods":"methods","experimental_procedure":"methods","experimental_details":"methods","experimental_setup":"methods","materials_and_methods":"methods","materials_and_device_fabrication":"methods","ii_results":"results","iii_results":"results","i_results":"results","result_and_discussion":"results_and_discussion","results_and_discussions":"results_and_discussion","ii_results_and_discussion":"results_and_discussion","iii_results_and_discussion":"results_and_discussion","2_results_and_discussion":"results_and_discussion","ii_discussion":"discussion","iii_discussion":"discussion","iv_discussion":"discussion","v_discussion":"discussion","14_discussion":"discussion","25_discussion":"discussion","4_discussion":"discussion","iii_conclusion":"conclusion","iv_conclusion":"conclusion","v_conclusion":"conclusion","vi_conclusions":"conclusion","vii_conclusions":"conclusion","iv_conclusions":"conclusion","1_conclusions":"conclusion","5_conclusion":"conclusion","con_luding_remarks":"conclusion","final_remarks":"conclusion","sonu_conclusion":"conclusion","conclusiones_y_perspectivas":"conclusion","conclusion_and_future_outlook":"conclusion","conclusion_and_perspective":"conclusion","conclusions_and_outlook":"conclusion","conclusions_and_perspectives":"conclusion","short_summary":"conclusion","summary_and_outlook":"conclusion","conclusion_this_work_expl":"conclusion","conclusion_to_conclude_a":"conclusion","synthesis":"synthesis","crystal_growth":"synthesis","cvd_growth":"synthesis","in2se3_synthesis":"synthesis","sample_synthesis":"synthesis","thin_film_growth":"synthesis","material_preparation":"synthesis","material_preparations":"synthesis","sample_preparation":"synthesis","sample_fabrication":"synthesis","growth_of_in2se3":"synthesis","in2se3_synthesis_using_mbe":"synthesis","1_material_preparation":"synthesis","1_preparation_and_characterization_of_in2se3_thin_film":"synthesis","1_thin_film_preparation_and_characterization_of_in2se3":"synthesis","characterizations":"characterization","structural_characterization":"characterization","material_characterization":"characterization","materials_characterization":"characterization","raman_characterization":"characterization","xrd_analysis":"characterization","optical_characterization":"characterization","electrical_characterization":"characterization","structural_and_morphological_characterization":"characterization","2_characterizations":"characterization","3_characterization":"characterization","1_structural_of_in2se3_properties":"characterization","12_xrd_raman_and_afm":"characterization","raman_spectroscopy":"characterization","raman_spectroscopy_analysis":"characterization","afm_measurements":"characterization","sem_measurements":"characterization","pfm_measurements":"characterization","optical_properties":"optical_properties","optical_analysis":"optical_properties","2_optical_calculation_of_in2se3_thin_film":"optical_properties","21_transmittance_and_reflectance_spectra":"optical_properties","22_refractive_index_and_dispersion_analysis":"optical_properties","23_dielectric_characterization":"optical_properties","24_the_nonlinear_optical_characteristics_of_the_in2se3_film":"optical_properties","device_fabrications":"device_fabrication","device_fabrication_and_measurements":"device_fabrication","device_fabrication_and_characterization":"device_fabrication","device_fabrication_and_electrical_measuremen":"device_fabrication","fabrication_and_experimental_details":"device_fabrication","devices_fabrication":"device_fabrication","dft_calculation":"computational_methods","first_principles_calculations":"computational_methods","density_functional_theory_calculations":"computational_methods","density_functional_theory_dft_calculations":"computational_methods","theoretical_calculations":"computational_methods","computational_details":"computational_methods","computational_methodology":"computational_methods","calculation_details":"computational_methods","electrical_measurement":"electrical_properties","electrical_measurements":"electrical_properties","transport_properties":"electrical_properties","electrical_transport_measurements":"electrical_properties"}
@@ -27,27 +49,120 @@ def normalise_name(name):
         if name.startswith(prefix): return canonical
     for pattern, canonical in RENAME_CONTAINS:
         if pattern in name: return canonical
-    if is_paper_title(name): return "preamble"
+    # A long keyword-free heading used to be renamed "preamble" here
+    # (is_paper_title). That made heading LENGTH decide what counts as front
+    # matter: paper 1's SI section on surface photovoltage was dropped and its
+    # 8-token author list was kept. Headings now keep their names; whether a
+    # section is front matter is judged from its text (tools/front_matter.py).
     return name
+# ── Front matter: by content, never by name or size (D1, 2026-09-11) ────────
+# History: "preamble" was once unconditional noise; with delete-before-rename
+# that made normalisation non-idempotent and ate content on every S5 run
+# (2026-09-10). The replacement dropped a preamble on SIZE (<=4,000 chars and
+# <30% of the paper), which then dropped the abstracts of papers 13, 15 and 17
+# because they sit in the same bucket as the author block.
+#
+# Now: a section whose text is front matter (e-mails, affiliations, author
+# lists - see tools/front_matter.py) is RELABELLED "front_matter", not deleted,
+# and S5 does not extract from it. A section with an "Abstract" marker after
+# some leading text is split there: the part from the marker on becomes
+# "abstract", the part before is judged on its own.
+FRONT_MATTER = "front_matter"
+_NEVER_SPLIT = {FRONT_MATTER, "abstract"}
+
+
+def _drop_candidates(rows):
+    """
+    rows: [(id, section_name, content_length)] for ONE paper.
+    Returns the set of row ids that should be deleted, before the
+    never-empty-a-paper guard is applied. Only noise NAMES are deleted;
+    front matter is relabelled, not deleted.
+    """
+    return {row_id for row_id, name, _ in rows if is_noise(name)}
+
+
+def _separate_front_matter(cur, paper_id):
+    """Split at Abstract markers and relabel front-matter sections. Returns (split, relabelled)."""
+    split = relabelled = 0
+    cur.execute("SELECT id, section_name, COALESCE(content,'') FROM PaperContent WHERE paper_id=? ORDER BY id",
+                (paper_id,))
+    for row_id, name, content in cur.fetchall():
+        if name in _NEVER_SPLIT or is_noise(name):
+            continue
+        parts = split_at_abstract(content)
+        if parts:
+            before, after = parts
+            if name == "preamble" or is_front_matter(before):
+                new_name = FRONT_MATTER if is_front_matter(before) else name
+                cur.execute("UPDATE PaperContent SET section_name=?, content=? WHERE id=?",
+                            (new_name, before, row_id))
+                cur.execute("INSERT INTO PaperContent (paper_id, section_name, content) VALUES (?,?,?)",
+                            (paper_id, "abstract", after))
+                split += 1
+                continue
+        if is_front_matter(content):
+            cur.execute("UPDATE PaperContent SET section_name=? WHERE id=?", (FRONT_MATTER, row_id))
+            relabelled += 1
+    return split, relabelled
+
+
 def run_normalisation(workflow_id=DEFAULT_WORKFLOW_ID):
+    if workflow_id is None:
+        raise ValueError("run_normalisation requires an explicit workflow_id")
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT id FROM Paper WHERE workflow_id=?", (workflow_id,))
     paper_ids = [r[0] for r in cur.fetchall()]
     print(f"[S4.5] Normalising {len(paper_ids)} papers (workflow {workflow_id})")
-    deleted = renamed = merged = 0
+    deleted = renamed = merged = kept = split = relabelled = refs_cut = 0
     for paper_id in paper_ids:
-        cur.execute("SELECT id, section_name FROM PaperContent WHERE paper_id=?", (paper_id,))
-        for row_id, section_name in cur.fetchall():
-            if is_noise(section_name):
-                cur.execute("DELETE FROM PaperContent WHERE id=?", (row_id,))
-                deleted += 1
+        # ── 1. Canonicalise names FIRST ──────────────────────────────────────
+        # Noise is judged on the final name, so one run reaches a fixed point
+        # and a second run is a no-op. The old order (delete, then rename) let
+        # a section renamed into a noise name survive one run and die on the
+        # next - it cost paper 20 14 KB on 2026-09-10 (see the front-matter note).
         cur.execute("SELECT id, section_name FROM PaperContent WHERE paper_id=?", (paper_id,))
         for row_id, section_name in cur.fetchall():
             canonical = normalise_name(section_name)
             if canonical != section_name:
                 cur.execute("UPDATE PaperContent SET section_name=? WHERE id=?", (canonical, row_id))
                 renamed += 1
+
+        # ── 1b. Front matter by content; split at an Abstract marker ─────────
+        s_, r_ = _separate_front_matter(cur, paper_id)
+        split += s_
+        relabelled += r_
+
+        # ── 1c. Cut reference lists S4 left inside body sections (D9) ────────
+        cur.execute("SELECT id, section_name, COALESCE(content,'') FROM PaperContent WHERE paper_id=?",
+                    (paper_id,))
+        for row_id, name, content in cur.fetchall():
+            if is_noise(name):
+                continue
+            kept_text, removed = strip_trailing_references(content)
+            if removed and kept_text.strip():
+                cur.execute("UPDATE PaperContent SET content=? WHERE id=?", (kept_text, row_id))
+                refs_cut += removed
+
+        # ── 2. Drop noise, but never empty a paper ───────────────────────────
+        # If every section a paper has looks like noise, that is far more likely
+        # to mean S4 segmentation mislabelled them than that the paper really
+        # contains nothing - and a paper with zero PaperContent rows is invisible
+        # to every downstream stage, silently shrinking the corpus.
+        cur.execute(
+            "SELECT id, section_name, LENGTH(COALESCE(content,'')) "
+            "FROM PaperContent WHERE paper_id=?", (paper_id,))
+        rows = cur.fetchall()
+        noise_ids = _drop_candidates(rows)
+        if noise_ids and len(noise_ids) == len(rows):
+            names = ", ".join(sorted({name for _, name, _ in rows}))
+            print(f"[S4.5] paper {paper_id}: all {len(rows)} section(s) match the noise "
+                  f"list ({names}) - keeping them, deleting would leave the paper empty")
+            kept += len(noise_ids)
+        else:
+            for row_id in noise_ids:
+                cur.execute("DELETE FROM PaperContent WHERE id=?", (row_id,))
+                deleted += 1
         cur.execute("SELECT section_name, COUNT(*) FROM PaperContent WHERE paper_id=? GROUP BY section_name HAVING COUNT(*) > 1", (paper_id,))
         for section_name, _ in cur.fetchall():
             cur.execute("SELECT id, content FROM PaperContent WHERE paper_id=? AND section_name=? ORDER BY id", (paper_id, section_name))
@@ -60,7 +175,9 @@ def run_normalisation(workflow_id=DEFAULT_WORKFLOW_ID):
                 merged += 1
     conn.commit()
     conn.close()
-    print(f"[S4.5] Done - deleted={deleted} renamed={renamed} merged={merged}")
+    print(f"[S4.5] Done - deleted={deleted} renamed={renamed} merged={merged} "
+          f"kept-as-last-content={kept} abstract-split={split} front-matter={relabelled} "
+          f"embedded-ref-chars-cut={refs_cut}")
 if __name__ == "__main__":
     wf = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_WORKFLOW_ID
     run_normalisation(wf)

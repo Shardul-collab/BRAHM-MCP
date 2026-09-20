@@ -61,7 +61,7 @@ async def ganesh_health(args: dict) -> dict:
                 "default": "literature_review",
             },
             "title":      {"type": "string"},
-            "project_id": {"type": "integer"},
+            "project_id": {"type": "integer", "description": "Chitragupta project id, from chitragupta_get_project. Projects live in brahm.db, which is a different database from SHANI's research_workflow.db."},
         },
         "required": ["workflow_ids"],
     },
@@ -92,7 +92,7 @@ async def ganesh_write_review(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "document_id": {"type": "string"},
+            "document_id": {"type": "string", "description": "GANESH document id, from ganesh_list_documents. These live in SHANI's research_workflow.db, not in brahm.db — chitragupta_get_document will not find them."},
         },
         "required": ["document_id"],
     },
@@ -122,7 +122,7 @@ async def ganesh_synthesize(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "document_id": {"type": "string"},
+            "document_id": {"type": "string", "description": "GANESH document id, from ganesh_list_documents. These live in SHANI's research_workflow.db, not in brahm.db — chitragupta_get_document will not find them."},
             "stage": {
                 "type": "string",
                 "enum": ["G2", "G3", "G4", "G5"],
@@ -180,7 +180,7 @@ async def ganesh_list_documents(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "project_id": {"type": "integer"},
+            "project_id": {"type": "integer", "description": "Chitragupta project id, from chitragupta_get_project. Projects live in brahm.db, which is a different database from SHANI's research_workflow.db."},
             "save": {
                 "type": "boolean",
                 "default": True,

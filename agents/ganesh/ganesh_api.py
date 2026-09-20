@@ -42,7 +42,8 @@ from pydantic import BaseModel
 # BRAHM_ROOT is env-overridable (see brahm/shared/constants.py for the same
 # pattern) -- defaults to the original hardcoded path so nothing changes on
 # the dev machine.
-BRAHM_ROOT   = Path(os.environ.get("BRAHM_ROOT", "/mnt/d/brahm"))
+# Default was "/mnt/d/brahm" (WSL). Now the repo this file lives in (2026-09-11).
+BRAHM_ROOT   = Path(os.environ["BRAHM_ROOT"]) if os.environ.get("BRAHM_ROOT") else Path(__file__).resolve().parents[2]
 SHANI_ROOT   = BRAHM_ROOT / "agents/shani"
 GANESH_ROOT  = BRAHM_ROOT / "agents/ganesh"
 
