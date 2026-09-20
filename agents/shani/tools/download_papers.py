@@ -17,6 +17,33 @@ CHITRAGUPTA_BASE = "http://localhost:8003"
 CHITRAGUPTA_TIMEOUT = 5   # seconds — never block the pipeline on this
 
 
+def _chit_headers() -> dict:
+    """
+    2026-09-20: the three dedup calls below sent no X-API-Key. They worked only
+    because Chitragupta mounted brahm_db_router without an auth dependency --
+    the whole Projects/Papers/Results/Documents surface was open on a server
+    bound to 0.0.0.0. That gap is now closed (agents/chitragupta/api/app.py),
+    so the header is required. SHANI runs as its own process and does not
+    import brahm.shared.http, so the key is read the same way that module does:
+    env first, then Chitragupta's own .env.
+    """
+    key = os.environ.get("CHITRAGUPTA_API_KEY", "").strip()
+    if not key:
+        root = os.environ.get("BRAHM_ROOT") or os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
+        )
+        env_path = os.path.join(root, "agents", "chitragupta", ".env")
+        try:
+            with open(env_path, "r", encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("API_KEY="):
+                        key = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        break
+        except OSError:
+            pass
+    return {"X-API-Key": key}
+
+
 # =========================================================
 # CHITRAGUPTA HELPERS
 # =========================================================
@@ -29,6 +56,7 @@ def _chit_check(doi: str | None, title: str | None) -> dict | None:
     try:
         r = requests.post(
             f"{CHITRAGUPTA_BASE}/v1/papers/check",
+            headers=_chit_headers(),
             json={"doi": doi, "title": title},
             timeout=CHITRAGUPTA_TIMEOUT,
         )
@@ -54,6 +82,7 @@ def _chit_register(
     try:
         r = requests.post(
             f"{CHITRAGUPTA_BASE}/v1/papers",
+            headers=_chit_headers(),
             json={
                 "title":          title,
                 "doi":            doi,
@@ -75,6 +104,7 @@ def _chit_link(global_paper_id: int, workflow_id: int) -> None:
     try:
         requests.post(
             f"{CHITRAGUPTA_BASE}/v1/papers/{global_paper_id}/link",
+            headers=_chit_headers(),
             json={"project_id": 0, "workflow_id": workflow_id},
             timeout=CHITRAGUPTA_TIMEOUT,
         )

@@ -34,11 +34,11 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.dependencies import verify_api_key_at_startup
+from api.dependencies import api_key_auth, verify_api_key_at_startup
 from api.routers import databases, entries, analysis, relations, session, context, store
 from brahm_db.api import router as brahm_db_router
 from brahm_db.schema import init_db as init_brahm_db
@@ -143,12 +143,24 @@ def create_app() -> FastAPI:
     # themselves (e.g. @router.post("/v1/projects")), so no prefix= here —
     # adding one would double it to /v1/v1/projects.
     #
-    # No auth dependency added: these routes never had Depends(api_key_auth)
-    # in their original standalone app, and the MCP-side callers
-    # (brahm/shared/http.py's _chitragupta_get/_chitragupta_post) never send
-    # an X-API-Key header. Adding auth here would newly break every
-    # chitragupta_* MCP tool instead of fixing them.
-    app.include_router(brahm_db_router)
+    # 2026-09-20: this router was mounted WITHOUT auth. The note that used to
+    # stand here said adding auth "would newly break every chitragupta_* MCP
+    # tool", which was true while brahm/shared/http.py sent no X-API-Key
+    # header — it now sends one on every request (_chit_headers()), so the
+    # reason has expired. Measured before closing it: `curl localhost:8003/v1/
+    # projects` with no header returned 200, while the /v1/store/* routes on
+    # the same process returned 401. That was the entire Projects, Workloads,
+    # Decisions, Papers, Results and Documents surface — every write path the
+    # 11 chitragupta_* tools use, including POST /v1/papers and
+    # POST /v1/results/dft — reachable unauthenticated by anything that could
+    # open a socket to :8003, on a server that binds 0.0.0.0 and whose default
+    # CORS is "*". The /store/* routes were protected only because they are in
+    # a router that happens to declare Depends(api_key_auth) per route.
+    #
+    # brahm_db_router declares its own GET /health, which this app also
+    # defines at the root; the app's own route is registered first and wins,
+    # so the liveness probe stays unauthenticated.
+    app.include_router(brahm_db_router, dependencies=[Depends(api_key_auth)])
 
     logger.info("Chitragupta API app created. All routes under /v1.")
     return app
