@@ -171,7 +171,6 @@ chitragupta/
 ├── voice/              whisper_handler
 ├── main.py             CLI entry point
 ├── api_server.py       API entry point
-├── install.py          Setup helper
 ├── requirements.txt
 └── .env.example
 ```

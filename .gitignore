@@ -170,3 +170,7 @@ agents/vishwakarma/vishwakarma/CRASH
 # (2026-09-11-trl5-groundwork.md) whose home should be the vault, not the repo
 # root. Left untracked and visible so the move is a decision, not a silent
 # commit.
+
+# Removed from the repo 2026-09-20 (stale duplicates / v1 ghost). Kept on disk
+# here rather than deleted, so the removal stays reversible until you say otherwise.
+_removed_from_repo_20260920/
