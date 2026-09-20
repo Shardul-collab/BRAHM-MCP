@@ -10,8 +10,15 @@ Pass project_id in args to enable. Silently skipped if omitted or API is down.
 """
 
 import asyncio
+import logging
+
 from brahm.brahm_registry import brahm_tool
 from brahm.shared.helpers import _ok, _err
+
+# mcp_server.py speaks JSON-RPC over stdio. Anything print()ed from inside a
+# tool goes into that same stream and corrupts the protocol frame, so every
+# diagnostic in this module logs to stderr instead. (2026-09-20)
+log = logging.getLogger("brahm.vidur")
 
 CHITRAGUPTA_BASE    = "http://localhost:8003"
 CHITRAGUPTA_TIMEOUT = 5
@@ -29,15 +36,26 @@ def _chit_save_instrument(
     signals: list,
     parsed_data: dict,
     cycle_id: int | None,
-) -> int | None:
+) -> tuple[int | None, str | None]:
     """
     POST /v1/results/instrument — persist a VIDUR result to brahm.db.
-    Returns result_id or None. Never raises.
+    Returns (result_id, error). Never raises.
+
+    2026-09-19: used to return just an id, so a caller could not tell a failed
+    save from one that was never attempted. Both stores held 0 rows and nothing
+    in the result said so.
     """
     try:
         import requests
+        from brahm.shared.http import _chit_headers
+        # 2026-09-20: this call sent no X-API-Key. It worked only because
+        # Chitragupta mounted brahm_db_router without an auth dependency --
+        # the whole Projects/Papers/Results/Documents surface was reachable
+        # unauthenticated on a server bound to 0.0.0.0. That gap is now closed
+        # (agents/chitragupta/api/app.py), so the header is required.
         r = requests.post(
             f"{CHITRAGUPTA_BASE}/v1/results/instrument",
+            headers=_chit_headers(),
             json={
                 "project_id":  project_id,
                 "file_path":   file_path,
@@ -51,11 +69,12 @@ def _chit_save_instrument(
         )
         if r.status_code == 200:
             rid = r.json().get("result_id")
-            print(f"[CHITRAGUPTA] Instrument result saved: result_id={rid}")
-            return rid
+            log.info("Instrument result saved: result_id=%s", rid)
+            return rid, None
+        return None, f"HTTP {r.status_code}: {r.text[:200]}"
     except Exception as e:
-        print(f"[CHITRAGUPTA] Auto-save skipped: {e}")
-    return None
+        log.warning("Instrument auto-save skipped: %s", e)
+        return None, f"{type(e).__name__}: {e}"
 
 
 # =========================================================
@@ -92,6 +111,12 @@ def _chit_save_instrument(
                 "description": "Link result to a CHITRAGUPTA project (enables auto-save to brahm.db)",
             },
             "cycle_id": {"type": "integer"},
+            "include_data": {
+                "type": "boolean",
+                "description": ("Return the full axis/intensity arrays. Off by "
+                                "default: a real scan is tens of thousands of "
+                                "numbers. Use vidur_process for the data itself."),
+            },
         },
         "required": ["file_path"],
     },
@@ -134,8 +159,14 @@ async def vidur_classify(args: dict) -> dict:
 
             # ── Auto-save to brahm.db ─────────────────────────
             saved_result_id = None
-            if project_id and technique != "Unknown":
-                saved_result_id = _chit_save_instrument(
+            persist_error = None
+            if not project_id:
+                persist_error = ("not attempted: no project_id was passed, so the "
+                                 "result was not written to brahm.db")
+            elif technique == "Unknown":
+                persist_error = "not attempted: technique is Unknown"
+            else:
+                saved_result_id, persist_error = _chit_save_instrument(
                     project_id=project_id,
                     file_path=file_path,
                     technique=technique,
@@ -145,13 +176,34 @@ async def vidur_classify(args: dict) -> dict:
                     cycle_id=cycle_id,
                 )
 
+            # 2026-09-19: this returned the full axis and intensity arrays. A
+            # 1,800-point scan is ~53 KB of JSON, and VIDUR's caller is a model,
+            # so the tool was unusable on a real file -- measured through the
+            # live connector. Summarise by default; the arrays are available on
+            # request and the CSV is the real delivery anyway.
+            summary = None
+            if parsed:
+                ax, iy = parsed.get("axis") or [], parsed.get("intensity") or []
+                summary = {
+                    "axis_name": parsed.get("axis_name"),
+                    "points": len(ax),
+                    "axis_range": [ax[0], ax[-1]] if ax else None,
+                    "intensity_range": [min(iy), max(iy)] if iy else None,
+                    "metadata": parsed.get("metadata"),
+                }
+                if not args.get("include_data"):
+                    parsed = summary
+
             return _ok({
                 "technique":       technique,
                 "confidence":      confidence,
                 "signals":         signals,
                 "parsed_data":     parsed,
+                "summary":         summary,
                 "error":           result.get("error"),
                 "saved_result_id": saved_result_id,
+                "persisted":       saved_result_id is not None,
+                "persist_error":   persist_error,
             })
 
         except ImportError as exc:
@@ -212,8 +264,31 @@ async def vidur_list_techniques(args: dict) -> dict:
             "axis":            "RamanShift_cm-1 (100-3500 cm-1)",
             "strong_keywords": ["raman", "cm-1", "wavenumber", "raman shift", "stokes"],
         },
+        {
+            "technique":       "IV / IT",
+            "description":     ("Source-meter tables (Keithley, EC-Lab) — an I-V sweep "
+                                "or a time trace. Which one is decided from the data: a "
+                                "sweeping source column is IV, a flat one while time "
+                                "advances is IT."),
+            "extensions":      [".csv", ".dat", ".txt", ".mpt"],
+            "axis":            "Voltage_V or Time_s (read from the file's own unit columns)",
+            "strong_keywords": ["amp dc", "volt dc", "relative time", "ec-lab", "keithley"],
+        },
     ]
-    return _ok({"count": len(techniques), "techniques": techniques})
+    # 2026-09-20: this list was hardcoded and still said 4 techniques the day
+    # after `sourcemeter` shipped -- the same drift that made vidur_health report
+    # "all modules healthy" without checking it. Assert it covers what the router
+    # actually registers, so the next parser cannot be silently omitted.
+    try:
+        from router import _get_parser_map
+        registered = {m.__name__.split(".")[-1] for m in _get_parser_map().values()}
+        listed = {"xrd", "uvvis", "sem_eds", "raman", "sourcemeter"}
+        missing = registered - listed
+    except Exception as exc:
+        missing, registered = set(), f"unavailable ({type(exc).__name__})"
+    return _ok({"count": len(techniques), "techniques": techniques,
+                "parsers_registered": sorted(registered) if isinstance(registered, set) else registered,
+                "undocumented_parsers": sorted(missing) or None})
 
 
 @brahm_tool(
@@ -237,8 +312,13 @@ async def vidur_health(args: dict) -> dict:
             except Exception as exc:
                 results[module_name] = f"FAILED: {exc}"
                 overall = False
-        for parser in ("parsers.xrd", "parsers.uvvis", "parsers.sem_eds", "parsers.raman"):
-            short = parser.split(".")[-1]
+        # 2026-09-19: this list was hardcoded and silently omitted `sourcemeter`
+        # the day it was added, so health reported "all modules healthy" while
+        # not checking a parser that was live. Ask the router what it registers.
+        from router import _get_parser_map
+        for short in sorted({m.__name__.split(".")[-1]
+                             for m in _get_parser_map().values()}):
+            parser = f"parsers.{short}"
             try:
                 __import__(parser)
                 results[f"parser:{short}"] = "ok"
@@ -254,3 +334,101 @@ async def vidur_health(args: dict) -> dict:
             ),
         })
     return await asyncio.to_thread(_check)
+
+
+# =========================================================
+# BATCH: folder -> plan -> plot-ready CSVs   (2026-09-19)
+# =========================================================
+
+@brahm_tool(
+    name        = "vidur_scan",
+    group       = "vidur",
+    description = (
+        "Walk an input folder and return a PLAN: which file is which technique, "
+        "how the filenames group into series and samples, and an explicit list of "
+        "what VIDUR could not resolve. Writes nothing. Answer the questions it "
+        "returns, then call vidur_process. Runs fully locally."
+    ),
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "folder": {"type": "string", "description": "Absolute path to the input folder"},
+        },
+        "required": ["folder"],
+    },
+)
+async def vidur_scan(args: dict) -> dict:
+    folder = (args.get("folder") or "").strip()
+    if not folder:
+        return _err("Missing required argument: folder")
+
+    def _run() -> dict:
+        try:
+            import batch
+            return _ok(batch.scan(folder))
+        except NotADirectoryError:
+            return _err(f"Not a directory: {folder}")
+        except ImportError as exc:
+            return _err("VIDUR import failed", str(exc))
+        except Exception as exc:
+            return _err("VIDUR scan failed", f"{type(exc).__name__}: {exc}")
+
+    return await asyncio.to_thread(_run)
+
+
+@brahm_tool(
+    name        = "vidur_process",
+    group       = "vidur",
+    description = (
+        "Write plot-ready CSVs for every file in the folder VIDUR could resolve. "
+        "One CSV per file (raw column plus derived columns), and a wide CSV per "
+        "series where the sample x-axes actually match. The raw data is never "
+        "filtered or altered; every transformation is an extra column. Call "
+        "vidur_scan first and pass its questions back as answers."
+    ),
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "folder": {"type": "string", "description": "Absolute path to the input folder"},
+            "out_dir": {"type": "string", "description": "Defaults to <folder>/vidur_out"},
+            "techniques": {
+                "type": "object",
+                "description": "Override a guess: {\"file.csv\": \"XRD\"}",
+            },
+            "params": {
+                "type": "object",
+                "description": (
+                    "Constants VIDUR will not assume: wavelength_a (XRD d/q columns), "
+                    "thickness_cm and y_kind (UV-Vis alpha/Tauc), reference_band_cm1 (Raman)."
+                ),
+            },
+            "file_params": {
+                "type": "object",
+                "description": "Per-file overrides of params, keyed by filename",
+            },
+        },
+        "required": ["folder"],
+    },
+)
+async def vidur_process(args: dict) -> dict:
+    folder = (args.get("folder") or "").strip()
+    if not folder:
+        return _err("Missing required argument: folder")
+    answers = {
+        "techniques":  args.get("techniques") or {},
+        "params":      args.get("params") or {},
+        "file_params": args.get("file_params") or {},
+    }
+
+    def _run() -> dict:
+        try:
+            import batch
+            return _ok(batch.process(folder, answers, args.get("out_dir")))
+        except NotADirectoryError:
+            return _err(f"Not a directory: {folder}")
+        except ImportError as exc:
+            return _err("VIDUR import failed", str(exc))
+        except Exception as exc:
+            return _err("VIDUR processing failed", f"{type(exc).__name__}: {exc}")
+
+    return await asyncio.to_thread(_run)

@@ -4,13 +4,22 @@ brahm/agents/vishwakarma.py
 Group H — Vishwakarma Quantum ESPRESSO DFT tools.
 All calculations run locally via subprocess — no internet.
 
-Auto-save: after every successful run_* call, result is persisted
-to brahm.db via POST /v1/results/dft (CHITRAGUPTA API on :8003).
-project_id is optional — pass it in args to link the result to a project.
-If CHITRAGUPTA is down, the save is silently skipped — never blocks calculation.
+Auto-save: every run_* call routes through _persist_run(), which writes the
+result to brahm.db via POST /v1/results/dft (CHITRAGUPTA API on :8003) with
+its REAL status, and then fires the /v1/store/vishwakarma call for runs that
+actually completed. project_id is optional — pass it in args to link the
+result to a project. If CHITRAGUPTA is down, the save is silently skipped —
+never blocks calculation.
+
+Before 2026-09-09 each tool duplicated this block inline and all seven were
+broken: they read job_id/converged off the top level of a workflow result
+(where those keys do not exist), hardcoded status="completed" regardless of
+outcome, and guarded the store call on a marker that _ok() had already
+overwritten. See _persist_run's docstring for the full account.
 """
 
 import asyncio
+import logging
 import os
 import time
 
@@ -30,6 +39,10 @@ CALC_PARAMS_DESC = (
 )
 
 CHITRAGUPTA_BASE    = "http://localhost:8003"
+
+# mcp_server.py speaks JSON-RPC over stdio; a print() from inside a tool lands
+# in that stream and corrupts the frame. Diagnostics go to stderr. (2026-09-20)
+log = logging.getLogger("brahm.vishwakarma")
 CHITRAGUPTA_TIMEOUT = 5   # never block a calculation on this
 
 
@@ -47,18 +60,33 @@ def _chit_save_dft(
     status: str,
     wall_time_seconds: float | None,
     cycle_id: int | None,
-) -> int | None:
+) -> tuple[int | None, str | None]:
     """
     POST /v1/results/dft — persist a completed QE result to brahm.db.
-    Returns result_id or None. Never raises.
-    Skipped silently if project_id is None or CHITRAGUPTA is unreachable.
+    Returns (result_id, error). Never raises.
+
+    2026-09-20: this returned a bare id and swallowed every failure mode into
+    None -- no project_id, Chitragupta down, and a 500 from the write were
+    indistinguishable, and the only trace was a print() that went into the
+    stdio MCP transport. The caller of these tools is a model with nothing
+    else to go on, so the reason now comes back with the id. VIDUR's
+    _chit_save_instrument has reported this way since 2026-09-19; this is the
+    same contract.
     """
     if project_id is None:
-        return None
+        return None, ("not attempted: no project_id was passed, so the result "
+                      "was not linked to a project and nothing was stored")
     try:
         import requests
+        from brahm.shared.http import _chit_headers
+        # 2026-09-20: this call sent no X-API-Key. It worked only because
+        # Chitragupta mounted brahm_db_router without an auth dependency --
+        # the whole Projects/Papers/Results/Documents surface was reachable
+        # unauthenticated on a server bound to 0.0.0.0. That gap is now closed
+        # (agents/chitragupta/api/app.py), so the header is required.
         r = requests.post(
             f"{CHITRAGUPTA_BASE}/v1/results/dft",
+            headers=_chit_headers(),
             json={
                 "project_id":        project_id,
                 "job_id":            job_id,
@@ -74,11 +102,143 @@ def _chit_save_dft(
         )
         if r.status_code == 200:
             rid = r.json().get("result_id")
-            print(f"[CHITRAGUPTA] DFT result saved: result_id={rid}")
-            return rid
+            log.info("DFT result saved: result_id=%s", rid)
+            return rid, None
+        return None, f"HTTP {r.status_code}: {r.text[:200]}"
     except Exception as e:
-        print(f"[CHITRAGUPTA] Auto-save skipped: {e}")
-    return None
+        log.warning("DFT auto-save skipped: %s", e)
+        return None, f"{type(e).__name__}: {e}"
+
+
+def _run_summary(result: dict) -> dict:
+    """
+    Pull the flat summary fields out of a workflow.py result.
+
+    workflow._workflow_result() nests everything under "steps" and (since
+    2026-09-09) also exposes a precomputed "summary". Older callers read
+    job_id/converged/scf_iterations straight off the top level, where those
+    keys have never existed — so every record this module wrote to brahm.db
+    carried an empty job_id and null convergence. The fallback branch below
+    handles the ad-hoc single-job dicts that the NEB/HP handlers used to
+    build by hand, so both shapes flatten the same way.
+    """
+    if not isinstance(result, dict):
+        return {"job_id": "", "converged": None,
+                "scf_iterations": None, "total_energy_ev": None}
+
+    summary = result.get("summary")
+    if isinstance(summary, dict):
+        return summary
+
+    parsed = result.get("parsed")
+    parsed = parsed if isinstance(parsed, dict) else {}
+    return {
+        "job_id":          result.get("job_id", ""),
+        "converged":       parsed.get("converged"),
+        "scf_iterations":  parsed.get("scf_iterations"),
+        "total_energy_ev": parsed.get("total_energy_ev"),
+    }
+
+
+def _run_status(result: dict) -> str:
+    """
+    Derive the persisted status from what actually happened.
+
+    Every run_* tool used to pass a hardcoded status="completed" to
+    _chit_save_dft, so a workflow that returned success=False with
+    failed_at="scf" was still recorded in brahm.db as a completed
+    calculation — failed and successful runs were indistinguishable once
+    stored. Read the real flag instead.
+    """
+    if not isinstance(result, dict):
+        return "failed"
+    if "success" in result:
+        return "completed" if result["success"] else "failed"
+    # Ad-hoc single-job shape: status is runner.run_job()'s dict, not a str.
+    status = result.get("status")
+    if isinstance(status, dict):
+        return "completed" if status.get("status") == "completed" else "failed"
+    return "completed" if status == "completed" else "failed"
+
+
+async def _persist_run(
+    calc_type: str,
+    args: dict,
+    result: dict,
+    wall_time_seconds: float | None,
+    material_name: str = "",
+) -> None:
+    """
+    Single persistence path for every run_* tool: brahm.db via
+    _chit_save_dft, plus the fire-and-forget /v1/store/vishwakarma call.
+
+    Consolidated 2026-09-09. This logic was previously duplicated across
+    all seven run_* tools with three independent defects — see _run_summary
+    and _run_status above, plus the guard bug: the tail check was
+    `if result.get('status') == 'success'`, but _ok() merges the payload
+    over its own {"status": "success"} marker. The five workflow tools
+    happened to pass a payload with no "status" key so the marker survived
+    and the guard fired; run_neb and run_hp passed runner.run_job()'s status
+    DICT under that same key, which overwrote the marker with a dict, so
+    their guard compared a dict to "success" and never fired at all. Their
+    store call was dead code for as long as it existed.
+
+    Never raises — a persistence failure must not fail a calculation that
+    already ran.
+    """
+    summary = _run_summary(result)
+    status  = _run_status(result)
+
+    saved_id: int | None = None
+    persist_error: str | None = None
+    try:
+        saved_id, persist_error = _chit_save_dft(
+            project_id=args.get("project_id"),
+            job_id=summary.get("job_id", ""),
+            calc_type=calc_type,
+            structure=args.get("structure") or args.get("initial_structure"),
+            calc_params=args.get("calc_params"),
+            output_parsed=result,
+            status=status,
+            wall_time_seconds=wall_time_seconds,
+            cycle_id=args.get("cycle_id"),
+        )
+    except Exception as exc:
+        log.warning("DFT save skipped: %s", exc)
+        persist_error = f"{type(exc).__name__}: {exc}"
+
+    # 2026-09-20: _persist_run returned None and told the caller nothing, so a
+    # run_* tool reported a successful calculation whether or not a single row
+    # had been written. brahm.db's DFTResult table held 0 rows and no tool
+    # output had ever said so. Say it on the result itself.
+    if isinstance(result, dict):
+        result["custody"] = {
+            "stored":     saved_id is not None,
+            "result_id":  saved_id,
+            "project_id": args.get("project_id"),
+            "error":      persist_error,
+        }
+
+    if status != "completed":
+        return
+
+    try:
+        from brahm.shared.http import _chit_store_async
+        asyncio.ensure_future(_chit_store_async('/v1/store/vishwakarma', {
+            'calculation_type': calc_type,
+            'material_name':    material_name,
+            'output_file_path': summary.get('job_id', ''),
+            'scf_iterations':   summary.get('scf_iterations'),
+            'converged':        summary.get('converged'),
+            'job_id':           summary.get('job_id', ''),
+        }))
+    except Exception as exc:
+        log.warning("store skipped: %s", exc)
+
+
+def _material_of(args: dict, key: str = "structure") -> str:
+    src = args.get(key)
+    return src.get("prefix", "") if isinstance(src, dict) else ""
 
 
 # =========================================================
@@ -129,7 +289,7 @@ async def vishwakarma_health(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "calc_type":     {"type": "string", "enum": CALC_TYPES},
+            "calc_type":     {"type": "string", "enum": CALC_TYPES, "description": "Calculation to generate input for: scf, relax, bands, dos, phonon, neb or hp."},
             "structure":     {"type": "object", "description": STRUCTURE_DESC},
             "calc_params":   {"type": "object", "description": CALC_PARAMS_DESC},
             "phonon_params": {"type": "object", "description": "Extra params for phonon/dos/pp/hp"},
@@ -207,8 +367,8 @@ async def vishwakarma_generate_input(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "structure":   {"type": "object"},
-            "calc_params": {"type": "object"},
+            "structure":   {"type": "object", "description": "Atomic structure: cell vectors, species and positions, in the form generate_input expects."},
+            "calc_params": {"type": "object", "description": "Quantum ESPRESSO parameters — cutoffs, k-points, smearing, pseudopotentials. See vishwakarma_list_pseudopotentials for what is installed."},
             "label":       {"type": "string", "default": "scf"},
             "mpi_np":      {"type": "integer", "default": 1},
             "timeout":     {"type": "integer", "default": 3600},
@@ -222,40 +382,20 @@ async def vishwakarma_run_scf(args: dict) -> dict:
     def _run() -> dict:
         try:
             from vishwakarma import workflow as wf
-            t0 = time.time()
             result = wf.scf_only(
                 structure=args["structure"], calc_params=args["calc_params"],
                 label=args.get("label","scf"), workdir=QE_WORKDIR,
                 bin_dir=QE_BIN_DIR, timeout=args.get("timeout",3600),
                 mpi_np=args.get("mpi_np",1),
             )
-            wall = round(time.time() - t0, 1)
-            _chit_save_dft(
-                project_id=args.get("project_id"),
-                job_id=result.get("job_id",""),
-                calc_type="scf",
-                structure=args.get("structure"),
-                calc_params=args.get("calc_params"),
-                output_parsed=result,
-                status="completed",
-                wall_time_seconds=wall,
-                cycle_id=args.get("cycle_id"),
-            )
             return _ok(result)
         except Exception as exc:
             return _err("SCF calculation failed", str(exc))
+    _t0 = time.time()
     result = await asyncio.to_thread(_run)
-    if result.get('status') == 'success':
-        import asyncio as _aio
-        from brahm.shared.http import _chit_store_async
-        _aio.ensure_future(_chit_store_async('/v1/store/vishwakarma', {
-            'calculation_type': 'scf',
-            'material_name':    args.get('structure',{}).get('prefix',''),
-            'output_file_path': result.get('output_file', ''),
-            'scf_iterations':   result.get('scf_iterations'),
-            'converged':        result.get('converged'),
-            'job_id':           result.get('job_id', ''),
-        }))
+    await _persist_run('scf', args, result,
+                       round(time.time() - _t0, 1),
+                       material_name=_material_of(args))
     return result
 
 
@@ -268,8 +408,8 @@ async def vishwakarma_run_scf(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "structure":   {"type": "object"},
-            "calc_params": {"type": "object"},
+            "structure":   {"type": "object", "description": "Atomic structure: cell vectors, species and positions, in the form generate_input expects."},
+            "calc_params": {"type": "object", "description": "Quantum ESPRESSO parameters — cutoffs, k-points, smearing, pseudopotentials. See vishwakarma_list_pseudopotentials for what is installed."},
             "vc_relax":    {"type": "boolean", "default": False},
             "label":       {"type": "string", "default": "relax"},
             "mpi_np":      {"type": "integer", "default": 1},
@@ -284,41 +424,21 @@ async def vishwakarma_run_relax(args: dict) -> dict:
     def _run() -> dict:
         try:
             from vishwakarma import workflow as wf
-            t0 = time.time()
             result = wf.relax_then_scf(
                 structure=args["structure"], calc_params=args["calc_params"],
                 vc=args.get("vc_relax",False), label=args.get("label","relax"),
                 workdir=QE_WORKDIR, bin_dir=QE_BIN_DIR,
                 timeout=args.get("timeout",7200), mpi_np=args.get("mpi_np",1),
             )
-            wall = round(time.time() - t0, 1)
             calc_type = "vc-relax" if args.get("vc_relax") else "relax"
-            _chit_save_dft(
-                project_id=args.get("project_id"),
-                job_id=result.get("job_id",""),
-                calc_type=calc_type,
-                structure=args.get("structure"),
-                calc_params=args.get("calc_params"),
-                output_parsed=result,
-                status="completed",
-                wall_time_seconds=wall,
-                cycle_id=args.get("cycle_id"),
-            )
             return _ok(result)
         except Exception as exc:
             return _err("Relaxation failed", str(exc))
+    _t0 = time.time()
     result = await asyncio.to_thread(_run)
-    if result.get('status') == 'success':
-        import asyncio as _aio
-        from brahm.shared.http import _chit_store_async
-        _aio.ensure_future(_chit_store_async('/v1/store/vishwakarma', {
-            'calculation_type': 'relax',
-            'material_name':    args.get('structure',{}).get('prefix',''),
-            'output_file_path': result.get('output_file', ''),
-            'scf_iterations':   result.get('scf_iterations'),
-            'converged':        result.get('converged'),
-            'job_id':           result.get('job_id', ''),
-        }))
+    await _persist_run('relax', args, result,
+                       round(time.time() - _t0, 1),
+                       material_name=_material_of(args))
     return result
 
 
@@ -331,8 +451,8 @@ async def vishwakarma_run_relax(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "structure":   {"type": "object"},
-            "calc_params": {"type": "object"},
+            "structure":   {"type": "object", "description": "Atomic structure: cell vectors, species and positions, in the form generate_input expects."},
+            "calc_params": {"type": "object", "description": "Quantum ESPRESSO parameters — cutoffs, k-points, smearing, pseudopotentials. See vishwakarma_list_pseudopotentials for what is installed."},
             "kpath":       {"type": "array", "items": {"type": "array"}},
             "label":       {"type": "string", "default": "bands"},
             "mpi_np":      {"type": "integer", "default": 1},
@@ -347,40 +467,20 @@ async def vishwakarma_run_bands(args: dict) -> dict:
     def _run() -> dict:
         try:
             from vishwakarma import workflow as wf
-            t0 = time.time()
             result = wf.band_structure(
                 structure=args["structure"], calc_params=args["calc_params"],
                 kpath=args.get("kpath"), label=args.get("label","bands"),
                 workdir=QE_WORKDIR, bin_dir=QE_BIN_DIR,
                 timeout=args.get("timeout",3600), mpi_np=args.get("mpi_np",1),
             )
-            wall = round(time.time() - t0, 1)
-            _chit_save_dft(
-                project_id=args.get("project_id"),
-                job_id=result.get("job_id",""),
-                calc_type="bands",
-                structure=args.get("structure"),
-                calc_params=args.get("calc_params"),
-                output_parsed=result,
-                status="completed",
-                wall_time_seconds=wall,
-                cycle_id=args.get("cycle_id"),
-            )
             return _ok(result)
         except Exception as exc:
             return _err("Band structure calculation failed", str(exc))
+    _t0 = time.time()
     result = await asyncio.to_thread(_run)
-    if result.get('status') == 'success':
-        import asyncio as _aio
-        from brahm.shared.http import _chit_store_async
-        _aio.ensure_future(_chit_store_async('/v1/store/vishwakarma', {
-            'calculation_type': 'bands',
-            'material_name':    args.get('structure',{}).get('prefix',''),
-            'output_file_path': result.get('output_file', ''),
-            'scf_iterations':   result.get('scf_iterations'),
-            'converged':        result.get('converged'),
-            'job_id':           result.get('job_id', ''),
-        }))
+    await _persist_run('bands', args, result,
+                       round(time.time() - _t0, 1),
+                       material_name=_material_of(args))
     return result
 
 
@@ -393,8 +493,8 @@ async def vishwakarma_run_bands(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "structure":   {"type": "object"},
-            "calc_params": {"type": "object"},
+            "structure":   {"type": "object", "description": "Atomic structure: cell vectors, species and positions, in the form generate_input expects."},
+            "calc_params": {"type": "object", "description": "Quantum ESPRESSO parameters — cutoffs, k-points, smearing, pseudopotentials. See vishwakarma_list_pseudopotentials for what is installed."},
             "dense_kmesh": {"type": "array"},
             "emin":        {"type": "number", "default": -20.0},
             "emax":        {"type": "number", "default":  20.0},
@@ -411,7 +511,6 @@ async def vishwakarma_run_dos(args: dict) -> dict:
     def _run() -> dict:
         try:
             from vishwakarma import workflow as wf
-            t0 = time.time()
             result = wf.dos_workflow(
                 structure=args["structure"], calc_params=args["calc_params"],
                 dense_kmesh=args.get("dense_kmesh"), emin=args.get("emin",-20.0),
@@ -419,33 +518,14 @@ async def vishwakarma_run_dos(args: dict) -> dict:
                 workdir=QE_WORKDIR, bin_dir=QE_BIN_DIR,
                 timeout=args.get("timeout",7200), mpi_np=args.get("mpi_np",1),
             )
-            wall = round(time.time() - t0, 1)
-            _chit_save_dft(
-                project_id=args.get("project_id"),
-                job_id=result.get("job_id",""),
-                calc_type="dos",
-                structure=args.get("structure"),
-                calc_params=args.get("calc_params"),
-                output_parsed=result,
-                status="completed",
-                wall_time_seconds=wall,
-                cycle_id=args.get("cycle_id"),
-            )
             return _ok(result)
         except Exception as exc:
             return _err("DOS calculation failed", str(exc))
+    _t0 = time.time()
     result = await asyncio.to_thread(_run)
-    if result.get('status') == 'success':
-        import asyncio as _aio
-        from brahm.shared.http import _chit_store_async
-        _aio.ensure_future(_chit_store_async('/v1/store/vishwakarma', {
-            'calculation_type': 'dos',
-            'material_name':    args.get('structure',{}).get('prefix',''),
-            'output_file_path': result.get('output_file', ''),
-            'scf_iterations':   result.get('scf_iterations'),
-            'converged':        result.get('converged'),
-            'job_id':           result.get('job_id', ''),
-        }))
+    await _persist_run('dos', args, result,
+                       round(time.time() - _t0, 1),
+                       material_name=_material_of(args))
     return result
 
 
@@ -463,8 +543,8 @@ async def vishwakarma_run_dos(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "structure":   {"type": "object"},
-            "calc_params": {"type": "object"},
+            "structure":   {"type": "object", "description": "Atomic structure: cell vectors, species and positions, in the form generate_input expects."},
+            "calc_params": {"type": "object", "description": "Quantum ESPRESSO parameters — cutoffs, k-points, smearing, pseudopotentials. See vishwakarma_list_pseudopotentials for what is installed."},
             "ldisp":   {"type": "boolean", "default": True},
             "nq":      {"type": "array", "default": [4,4,4]},
             "qpoints": {"type": "array"},
@@ -487,7 +567,6 @@ async def vishwakarma_run_phonon(args: dict) -> dict:
     def _run() -> dict:
         try:
             from vishwakarma import workflow as wf
-            t0 = time.time()
             result = wf.phonon_workflow(
                 structure=args["structure"], calc_params=args["calc_params"],
                 qpoints=args.get("qpoints"), ldisp=args.get("ldisp",True),
@@ -501,33 +580,14 @@ async def vishwakarma_run_phonon(args: dict) -> dict:
                 lraman=args.get("lraman", False),
                 qplot=args.get("qplot"),
             )
-            wall = round(time.time() - t0, 1)
-            _chit_save_dft(
-                project_id=args.get("project_id"),
-                job_id=result.get("job_id",""),
-                calc_type="phonon",
-                structure=args.get("structure"),
-                calc_params=args.get("calc_params"),
-                output_parsed=result,
-                status="completed",
-                wall_time_seconds=wall,
-                cycle_id=args.get("cycle_id"),
-            )
             return _ok(result)
         except Exception as exc:
             return _err("Phonon calculation failed", str(exc))
+    _t0 = time.time()
     result = await asyncio.to_thread(_run)
-    if result.get('status') == 'success':
-        import asyncio as _aio
-        from brahm.shared.http import _chit_store_async
-        _aio.ensure_future(_chit_store_async('/v1/store/vishwakarma', {
-            'calculation_type': 'phonon',
-            'material_name':    args.get('structure',{}).get('prefix',''),
-            'output_file_path': result.get('output_file', ''),
-            'scf_iterations':   result.get('scf_iterations'),
-            'converged':        result.get('converged'),
-            'job_id':           result.get('job_id', ''),
-        }))
+    await _persist_run('phonon', args, result,
+                       round(time.time() - _t0, 1),
+                       material_name=_material_of(args))
     return result
 
 
@@ -540,9 +600,9 @@ async def vishwakarma_run_phonon(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "initial_structure": {"type": "object"},
-            "final_structure":   {"type": "object"},
-            "calc_params":       {"type": "object"},
+            "initial_structure": {"type": "object", "description": "Starting structure of the NEB path."},
+            "final_structure":   {"type": "object", "description": "End structure of the NEB path. Must have the same species and count as initial_structure."},
+            "calc_params":       {"type": "object", "description": "Quantum ESPRESSO parameters — cutoffs, k-points, smearing, pseudopotentials. See vishwakarma_list_pseudopotentials for what is installed."},
             "num_images":  {"type": "integer", "default": 7},
             "ci_scheme":   {"type": "string", "enum": ["no-CI","auto","manual"], "default": "auto"},
             "opt_scheme":  {"type": "string", "enum": ["broyden","sd","lbfgs"], "default": "broyden"},
@@ -559,50 +619,29 @@ async def vishwakarma_run_phonon(args: dict) -> dict:
 async def vishwakarma_run_neb(args: dict) -> dict:
     def _run() -> dict:
         try:
-            from vishwakarma import input_generator as ig
-            from vishwakarma import runner as r
-            from vishwakarma import output_parser as op
-            t0 = time.time()
-            neb_input = ig.neb(
-                images=[args["initial_structure"], args["final_structure"]],
+            # Was an inline ig→runner→parse sequence assembled here, which is
+            # why NEB was unreachable from vishwakarma_api.py and the planner.
+            # Now composed like every other calculation type.
+            from vishwakarma import workflow as wf
+            return _ok(wf.neb_workflow(
+                initial_structure=args["initial_structure"],
+                final_structure=args["final_structure"],
                 calc_params=args["calc_params"],
-                num_of_images=args.get("num_images",7),
-                ci_scheme=args.get("ci_scheme","auto"),
-                opt_scheme=args.get("opt_scheme","broyden"),
-                nstep_path=args.get("nstep_path",200),
-            )
-            jid    = r.create_job(args.get("label","neb"), "neb", neb_input,
-                                  QE_WORKDIR, args.get("mpi_np",1))
-            status = r.run_job(jid, QE_WORKDIR, args.get("timeout",28800), QE_BIN_DIR)
-            parsed = op.parse_neb(r.get_output(jid, QE_WORKDIR))
-            wall   = round(time.time() - t0, 1)
-            result = {"job_id": jid, "status": status, "parsed": parsed}
-            _chit_save_dft(
-                project_id=args.get("project_id"),
-                job_id=jid,
-                calc_type="neb",
-                structure=args.get("initial_structure"),
-                calc_params=args.get("calc_params"),
-                output_parsed=parsed,
-                status="completed" if status == "completed" else "failed",
-                wall_time_seconds=wall,
-                cycle_id=args.get("cycle_id"),
-            )
-            return _ok(result)
+                num_images=args.get("num_images", 7),
+                ci_scheme=args.get("ci_scheme", "auto"),
+                opt_scheme=args.get("opt_scheme", "broyden"),
+                nstep_path=args.get("nstep_path", 200),
+                label=args.get("label", "neb"), workdir=QE_WORKDIR,
+                bin_dir=QE_BIN_DIR, timeout=args.get("timeout", 28800),
+                mpi_np=args.get("mpi_np", 1),
+            ))
         except Exception as exc:
             return _err("NEB calculation failed", str(exc))
+    _t0 = time.time()
     result = await asyncio.to_thread(_run)
-    if result.get('status') == 'success':
-        import asyncio as _aio
-        from brahm.shared.http import _chit_store_async
-        _aio.ensure_future(_chit_store_async('/v1/store/vishwakarma', {
-            'calculation_type': 'neb',
-            'material_name':    args.get('initial_structure',{}).get('prefix',''),
-            'output_file_path': result.get('output_file', ''),
-            'scf_iterations':   result.get('scf_iterations'),
-            'converged':        result.get('converged'),
-            'job_id':           result.get('job_id', ''),
-        }))
+    await _persist_run('neb', args, result,
+                       round(time.time() - _t0, 1),
+                       material_name=_material_of(args, 'initial_structure'))
     return result
 
 
@@ -610,13 +649,18 @@ async def vishwakarma_run_neb(args: dict) -> dict:
     name="vishwakarma_run_hp", group="vishwakarma",
     description=(
         "Compute Hubbard U parameters from linear response theory using hp.x. "
+        "Two modes: pass structure+calc_params to run SCF then hp.x, or pass "
+        "prefix+outdir to attach to an SCF that already ran. "
         "Pass project_id to auto-save result to brahm.db."
     ),
     input_schema={
         "type": "object",
         "properties": {
-            "prefix":    {"type": "string"},
-            "outdir":    {"type": "string"},
+            "structure":   {"type": "object", "description": STRUCTURE_DESC},
+            "calc_params": {"type": "object", "description": CALC_PARAMS_DESC},
+            "prefix":    {"type": "string", "description": "Attach mode: prefix of an existing SCF."},
+            "outdir":    {"type": "string", "description": "Attach mode: outdir of an existing SCF."},
+            "existing_scf_job_id": {"type": "string", "description": "Attach to a prior SCF job by id."},
             "nq":        {"type": "array", "default": [2,2,2]},
             "job_label": {"type": "string", "default": "hp"},
             "mpi_np":    {"type": "integer", "default": 1},
@@ -624,54 +668,39 @@ async def vishwakarma_run_neb(args: dict) -> dict:
             "project_id": {"type": "integer"},
             "cycle_id":   {"type": "integer"},
         },
-        "required": ["prefix", "outdir"],
+        # prefix+outdir were required before 2026-09-09, which forced every
+        # caller into attach mode and made hp the only calculation type that
+        # could not be run from a structure alone.
+        "required": [],
     },
 )
 async def vishwakarma_run_hp(args: dict) -> dict:
     def _run() -> dict:
         try:
-            import re as _re
-            from vishwakarma import input_generator as ig
-            from vishwakarma import runner as r
-            t0       = time.time()
-            hp_input = ig.hp(args["prefix"], args["outdir"],
-                             nq=tuple(args.get("nq",[2,2,2])))
-            jid    = r.create_job(args.get("job_label","hp"), "hp", hp_input,
-                                  QE_WORKDIR, args.get("mpi_np",1))
-            status = r.run_job(jid, QE_WORKDIR, args.get("timeout",7200), QE_BIN_DIR)
-            out    = r.get_output(jid, QE_WORKDIR)
-            u_vals = _re.findall(r"Hubbard U\s*\(\w+\)\s*=\s*([-\d.]+)", out)
-            wall   = round(time.time() - t0, 1)
-            parsed = {"u_values_ev": [float(u) for u in u_vals]}
-            _chit_save_dft(
-                project_id=args.get("project_id"),
-                job_id=jid,
-                calc_type="hp",
-                structure=None,
-                calc_params={"prefix": args["prefix"], "outdir": args["outdir"],
-                             "nq": args.get("nq",[2,2,2])},
-                output_parsed=parsed,
-                status="completed" if status == "completed" else "failed",
-                wall_time_seconds=wall,
-                cycle_id=args.get("cycle_id"),
-            )
-            return _ok({"job_id": jid, "status": status,
-                        "u_values_ev": [float(u) for u in u_vals],
-                        "note": "U values in eV. Use via hubbard_u in calc_params."})
+            from vishwakarma import workflow as wf
+            if not (args.get("structure") or (args.get("prefix") and args.get("outdir"))):
+                return _err(
+                    "HP calculation failed",
+                    "Provide either structure (+calc_params) to run SCF then hp.x, "
+                    "or both prefix and outdir to attach to an existing SCF.",
+                )
+            return _ok(wf.hp_workflow(
+                structure=args.get("structure") or {},
+                calc_params=args.get("calc_params") or {},
+                nq=tuple(args.get("nq", [2, 2, 2])),
+                label=args.get("job_label", "hp"), workdir=QE_WORKDIR,
+                bin_dir=QE_BIN_DIR, timeout=args.get("timeout", 7200),
+                mpi_np=args.get("mpi_np", 1),
+                existing_scf_job_id=args.get("existing_scf_job_id"),
+                prefix=args.get("prefix"), outdir=args.get("outdir"),
+            ))
         except Exception as exc:
             return _err("HP calculation failed", str(exc))
+    _t0 = time.time()
     result = await asyncio.to_thread(_run)
-    if result.get('status') == 'success':
-        import asyncio as _aio
-        from brahm.shared.http import _chit_store_async
-        _aio.ensure_future(_chit_store_async('/v1/store/vishwakarma', {
-            'calculation_type': 'hp',
-            'material_name':    args.get('prefix',''),
-            'output_file_path': result.get('output_file', ''),
-            'scf_iterations':   result.get('scf_iterations'),
-            'converged':        result.get('converged'),
-            'job_id':           result.get('job_id', ''),
-        }))
+    await _persist_run('hp', args, result,
+                       round(time.time() - _t0, 1),
+                       material_name=_material_of(args) or args.get('prefix', ''))
     return result
 
 
@@ -681,10 +710,10 @@ async def vishwakarma_run_hp(args: dict) -> dict:
     input_schema={
         "type": "object",
         "properties": {
-            "source":    {"type": "string", "enum": ["job_id","file_path"]},
-            "job_id":    {"type": "string"},
+            "source":    {"type": "string", "enum": ["job_id","file_path"], "description": "Path to the QE output file to parse, or the job id that produced it."},
+            "job_id":    {"type": "string", "description": "Job id returned by any vishwakarma_run_* tool. vishwakarma_list_jobs shows the known ids."},
             "file_path": {"type": "string"},
-            "code":      {"type": "string", "enum": ["pw","ph","dos","bands","neb"], "default": "pw"},
+            "code":      {"type": "string", "enum": ["pw","ph","dos","bands","neb"], "default": "pw", "description": "Which parser to use, matching the calculation that produced the output, e.g. 'pw', 'ph', 'neb', 'hp'."},
         },
         "required": ["source", "code"],
     },
@@ -728,7 +757,7 @@ async def vishwakarma_parse_output(args: dict) -> dict:
         "type": "object",
         "properties": {
             "pseudo_dirs":          {"type": "array", "items": {"type": "string"}},
-            "structure":            {"type": "object"},
+            "structure":            {"type": "object", "description": "Atomic structure: cell vectors, species and positions, in the form generate_input expects."},
             "preferred_functional": {"type": "string", "default": "pbe"},
             "preferred_type":       {"type": "string", "default": "us"},
         },
@@ -760,7 +789,7 @@ async def vishwakarma_list_pseudopotentials(args: dict) -> dict:
     description="Get the status of a specific Vishwakarma job by job_id.",
     input_schema={
         "type": "object",
-        "properties": {"job_id": {"type": "string"}},
+        "properties": {"job_id": {"type": "string", "description": "Job id returned by any vishwakarma_run_* tool. vishwakarma_list_jobs shows the known ids."}},
         "required": ["job_id"],
     },
 )
