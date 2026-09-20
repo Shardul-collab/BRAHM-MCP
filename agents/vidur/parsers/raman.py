@@ -109,11 +109,15 @@ def _parse_wdf(path: str) -> dict | None:
     raw  = content[512:]
     trim = (len(raw) // 4) * 4
     data = np.frombuffer(raw[:trim], dtype=np.float32).copy().astype(np.float64)
-    data = data[np.isfinite(data) & (data >= 0) & (data < 1e8)]
     if len(data) == 0:
         return None
-    shift = np.linspace(100.0, 3500.0, len(data))
-    return _out(shift, data, "wdf")
+    # The Raman shift axis lives in the WDF header, which this parser does not
+    # read. Until 2026-09-19 it emitted linspace(100, 3500) - a fabricated shift
+    # axis, wrong for any spectrum not covering exactly that range - after
+    # filtering `data`, which shifted every surviving point. Channel indices and
+    # an explicit uncalibrated flag instead.
+    return _out(np.arange(len(data), dtype=np.float64), data, "wdf",
+                calibrated=False)
 
 
 def _parse_spc(path: str) -> dict | None:
@@ -135,27 +139,33 @@ def _parse_spc(path: str) -> dict | None:
 
 
 def _parse_ascii(path: str) -> dict:
-    for dlm in (None, ",", "\t"):
-        for skip in range(50):
-            try:
-                data = np.loadtxt(path, delimiter=dlm, skiprows=skip,
-                                  comments=["#", "!", ";"])
-                if data.ndim == 2 and data.shape[1] >= 2 and data.shape[0] > 1:
-                    shift = data[:, 0]
-                    y     = data[:, 1]
-                    mask  = np.isfinite(shift) & np.isfinite(y) & (y >= 0)
-                    idx   = np.argsort(shift[mask])
-                    return _out(shift[mask][idx], y[mask][idx], "ascii")
-            except Exception:
-                continue
-    raise ValueError(f"Could not parse {path} as Raman ASCII data")
+    # 2026-09-19: was a loadtxt(skiprows=0..50) sweep. A JASCO export has an
+    # 18-line keyword header AND a trailing metadata block, so no single
+    # skiprows value parses it - LS4.txt was detected as Raman at confidence
+    # 1.0 and then failed to load.
+    from parsers._ascii import load_xy
+    data  = load_xy(path, "Raman")
+    shift, y = data[:, 0], data[:, 1]
+    idx   = np.argsort(shift)
+    return _out(shift[idx], y[idx], "ascii")
 
 
-def _out(shift: np.ndarray, intensity: np.ndarray, source: str) -> dict:
+def _out(shift: np.ndarray, intensity: np.ndarray, source: str,
+         calibrated: bool = True) -> dict:
+    # 2026-09-19: VIDUR's job is plot-ready data, so it must not decide which
+    # points survive. Value-range predicates used to sit here (intensity >= 0,
+    # counts >= 0) and silently removed real points - baseline-corrected XRD and
+    # Raman go negative on purpose. Only non-finite values are dropped, because
+    # they cannot be written to a CSV or plotted, and the count is reported.
+    mask = np.isfinite(shift) & np.isfinite(intensity)
+    dropped = int((~mask).sum())
     return {
         "technique": "Raman",
-        "axis_name": "RamanShift_cm-1",
-        "axis":      shift.tolist(),
-        "intensity": intensity.tolist(),
-        "metadata":  {"source": source, "units": "cm-1"},
+        "axis_name": "RamanShift_cm-1" if calibrated else "channel",
+        "axis":      shift[mask].tolist(),
+        "intensity": intensity[mask].tolist(),
+        "metadata":  {"source": source,
+                      "units": "cm-1" if calibrated else "index",
+                      "axis_calibrated": calibrated,
+                      "dropped_nonfinite": dropped},
     }

@@ -13,12 +13,13 @@ CONFIDENCE_THRESHOLD = 0.6
 # All registered parsers: (technique_name, parser_module)
 # Import lazily inside detect() to keep startup clean.
 def _load_parsers() -> list[tuple[str, object]]:
-    from parsers import xrd, uvvis, sem_eds, raman
+    from parsers import xrd, uvvis, sem_eds, raman, sourcemeter
     return [
         ("XRD",     xrd),
         ("UV-Vis",  uvvis),
         ("SEM_EDX", sem_eds),
         ("Raman",   raman),
+        ("IV/IT",   sourcemeter),
     ]
 
 

@@ -13,12 +13,15 @@ _PARSER_MAP = None
 def _get_parser_map() -> dict:
     global _PARSER_MAP
     if _PARSER_MAP is None:
-        from parsers import xrd, uvvis, sem_eds, raman
+        from parsers import xrd, uvvis, sem_eds, raman, sourcemeter
         _PARSER_MAP = {
             "XRD":     xrd,
             "UV-Vis":  uvvis,
             "SEM_EDX": sem_eds,
             "Raman":   raman,
+            "IV":      sourcemeter,
+            "IT":      sourcemeter,
+            "IV/IT":   sourcemeter,
         }
     return _PARSER_MAP
 
@@ -93,8 +96,14 @@ def route(detection: dict, data: dict) -> dict:
     try:
         parsed = parser.parse(data)
         result["parsed_data"] = parsed
-        # Promote the resolved technique (in case we fell through Uncertain)
-        result["technique"] = parsed.get("technique", technique)
+        # 2026-09-19: this used to promote the best guess to result["technique"],
+        # so a 0.1-confidence fall-through was reported as a definite technique
+        # (a Galactic .spc came back as "SEM_EDX"). The guess is reported, but it
+        # does not overwrite "Uncertain".
+        if detection["technique"] == "Uncertain":
+            result["best_guess"] = parsed.get("technique", technique)
+        else:
+            result["technique"] = parsed.get("technique", technique)
         logger.info(
             f"Parsed [{technique}]: "
             f"{len(parsed.get('axis', []))} data points"

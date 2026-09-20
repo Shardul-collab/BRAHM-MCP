@@ -109,11 +109,13 @@ def _parse_pe_sp(path: str) -> dict | None:
     raw  = content[0x1000:]
     trim = (len(raw) // 4) * 4
     y    = np.frombuffer(raw[:trim], dtype=np.float32).copy().astype(np.float64)
-    y    = y[np.isfinite(y) & (y > -10) & (y < 10)]
     if len(y) == 0:
         return None
-    wl = np.linspace(800.0, 200.0, len(y))
-    return _out(wl, y, "pe_sp")
+    # The wavelength axis lives in the PerkinElmer .sp header, which this parser
+    # does not read. Until 2026-09-19 it emitted linspace(800, 200) - a
+    # fabricated wavelength axis - after filtering `y`. Channel indices instead.
+    return _out(np.arange(len(y), dtype=np.float64), y, "pe_sp",
+                calibrated=False)
 
 
 def _parse_spc(path: str) -> dict | None:
@@ -138,31 +140,38 @@ def _parse_ascii(path: str) -> dict:
     data = _load_ascii(path)
     wl   = data[:, 0]
     y    = data[:, 1]
-    mask = (wl > 100) & (wl < 3000) & np.isfinite(y)
-    wl, y = wl[mask], y[mask]
-    idx   = np.argsort(wl)
+    # 2026-09-19: was (wl > 100) & (wl < 3000) - a hardcoded plausibility window
+    # that silently deleted anything outside it. Measured: it removed the first
+    # 30 points of a real LabSpec file (1024 rows in, 994 out) because they start
+    # at 46.6. No range filtering; _out drops only non-finite values.
+    idx = np.argsort(wl)
     return _out(wl[idx], y[idx], "ascii")
 
 
-def _out(wl: np.ndarray, intensity: np.ndarray, source: str) -> dict:
+def _out(wl: np.ndarray, intensity: np.ndarray, source: str,
+         calibrated: bool = True) -> dict:
+    # 2026-09-19: VIDUR's job is plot-ready data, so it must not decide which
+    # points survive. Value-range predicates used to sit here (intensity >= 0,
+    # counts >= 0) and silently removed real points - baseline-corrected XRD and
+    # Raman go negative on purpose. Only non-finite values are dropped, because
+    # they cannot be written to a CSV or plotted, and the count is reported.
     mask = np.isfinite(wl) & np.isfinite(intensity)
+    dropped = int((~mask).sum())
     return {
         "technique": "UV-Vis",
-        "axis_name": "Wavelength_nm",
+        "axis_name": "Wavelength_nm" if calibrated else "channel",
         "axis":      wl[mask].tolist(),
         "intensity": intensity[mask].tolist(),
-        "metadata":  {"source": source, "units": "nm"},
+        "metadata":  {"source": source,
+                      "units": "nm" if calibrated else "index",
+                      "axis_calibrated": calibrated,
+                      "dropped_nonfinite": dropped},
     }
 
 
 def _load_ascii(path: str) -> np.ndarray:
-    for dlm in (None, ",", "\t"):
-        for skip in range(50):
-            try:
-                data = np.loadtxt(path, delimiter=dlm, skiprows=skip,
-                                  comments=["#", "!", ";"])
-                if data.ndim == 2 and data.shape[1] >= 2 and data.shape[0] > 1:
-                    return data
-            except Exception:
-                continue
-    raise ValueError(f"Could not parse {path} as UV-Vis ASCII data")
+    # 2026-09-19: was a loadtxt(skiprows=0..50) sweep, which cannot read a
+    # file with BOTH a text header and a trailing metadata block - real
+    # JASCO and LabSpec exports have both.
+    from parsers._ascii import load_xy
+    return load_xy(path, "UV-Vis")

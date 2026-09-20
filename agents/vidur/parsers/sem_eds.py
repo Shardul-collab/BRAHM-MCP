@@ -215,10 +215,13 @@ def _parse_bruker_spx(path: str) -> dict:
         raise ValueError("Spectrum element not found in SPX")
     counts    = np.array([float(v) for v in el.text.split()], dtype=np.float64)
     calib_el  = root.find(".//CalibLin")
-    eV_per_ch = float(calib_el.text) if calib_el is not None and calib_el.text else 10.0
-    keV       = np.arange(len(counts)) * eV_per_ch / 1000.0
-    mask      = (keV >= 0) & (counts >= 0)
-    return _out(keV[mask], counts[mask], "bruker_spx")
+    if calib_el is not None and calib_el.text:
+        keV = np.arange(len(counts)) * float(calib_el.text) / 1000.0
+        return _out(keV, counts, "bruker_spx")
+    # No <CalibLin>. A 10.0 eV/channel guess was silently substituted until
+    # 2026-09-19, which put every peak at an energy the file never stated.
+    return _out(np.arange(len(counts), dtype=np.float64), counts, "bruker_spx",
+                calibrated=False)
 
 
 def _parse_edax_spc(path: str) -> dict | None:
@@ -229,34 +232,40 @@ def _parse_edax_spc(path: str) -> dict | None:
     raw    = content[4096:]
     trim   = (len(raw) // 4) * 4
     counts = np.frombuffer(raw[:trim], dtype=np.uint32).astype(np.float64)
-    counts = counts[counts < 1e9]
     if len(counts) == 0:
         return None
-    keV = np.arange(len(counts)) * 0.01
-    return _out(keV, counts, "edax_spc")
+    # eV/channel lives in the EDAX .spc header, which this parser does not read;
+    # 0.01 keV/channel was hardcoded until 2026-09-19 and applied after counts
+    # had been filtered. Channel indices instead.
+    return _out(np.arange(len(counts), dtype=np.float64), counts, "edax_spc",
+                calibrated=False)
 
 
 def _parse_ascii(path: str) -> dict:
-    for dlm in (None, ",", "\t"):
-        for skip in range(50):
-            try:
-                data = np.loadtxt(path, delimiter=dlm, skiprows=skip,
-                                  comments=["#", "!", ";", "$"])
-                if data.ndim == 2 and data.shape[1] >= 2 and data.shape[0] > 1:
-                    keV    = data[:, 0]
-                    counts = data[:, 1]
-                    mask   = np.isfinite(keV) & np.isfinite(counts) & (counts >= 0)
-                    return _out(keV[mask], counts[mask], "ascii")
-            except Exception:
-                continue
-    raise ValueError(f"Could not parse {path} as SEM/EDS data")
+    # 2026-09-19: see parsers/_ascii.py - the loadtxt sweep could not read a
+    # file with both a header and a trailing block.
+    from parsers._ascii import load_xy
+    data   = load_xy(path, "SEM/EDS")
+    keV, counts = data[:, 0], data[:, 1]
+    return _out(keV, counts, "ascii")
 
 
-def _out(keV: np.ndarray, counts: np.ndarray, source: str) -> dict:
+def _out(keV: np.ndarray, counts: np.ndarray, source: str,
+         calibrated: bool = True) -> dict:
+    # 2026-09-19: VIDUR's job is plot-ready data, so it must not decide which
+    # points survive. Value-range predicates used to sit here (intensity >= 0,
+    # counts >= 0) and silently removed real points - baseline-corrected XRD and
+    # Raman go negative on purpose. Only non-finite values are dropped, because
+    # they cannot be written to a CSV or plotted, and the count is reported.
+    mask = np.isfinite(keV) & np.isfinite(counts)
+    dropped = int((~mask).sum())
     return {
         "technique": "SEM_EDX",
-        "axis_name": "Energy_keV",
-        "axis":      keV.tolist(),
-        "intensity": counts.tolist(),
-        "metadata":  {"source": source, "units": "keV"},
+        "axis_name": "Energy_keV" if calibrated else "channel",
+        "axis":      keV[mask].tolist(),
+        "intensity": counts[mask].tolist(),
+        "metadata":  {"source": source,
+                      "units": "keV" if calibrated else "index",
+                      "axis_calibrated": calibrated,
+                      "dropped_nonfinite": dropped},
     }
