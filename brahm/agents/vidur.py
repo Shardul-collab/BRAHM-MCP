@@ -539,3 +539,78 @@ async def vidur_xrd_profile(args: dict) -> dict:
             return _err("VIDUR line-profile analysis failed", f"{type(exc).__name__}: {exc}")
 
     return await asyncio.to_thread(_run)
+
+
+@brahm_tool(
+    name        = "vidur_rietveld",
+    group       = "vidur",
+    description = (
+        "Rietveld refinement of one or more constant-wavelength X-ray patterns with "
+        "FullProf (fp2k; FULLPROF env or ~/FullProf_Suite). Each phase's CIF is "
+        "validated STRICTLY against the phase named (elements and ratios, the CIF's "
+        "own site consistency, source id when given); any mismatch refuses the run. "
+        "Parameters are freed in stages (default, after FullProfAPP: scale, zero, "
+        "background, cell, strain, size). A phase whose scale is not significant "
+        "(< 3 sigma) keeps its cell and broadening fixed. Several data files are "
+        "refined sequentially, each from the previous result. Every change to a "
+        "structural model (non-positive Biso -> 1.0) is reported. Runs locally."
+    ),
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "data_files": {"type": "array", "items": {"type": "string"},
+                           "description": "x, y, sigma files (.xye); several = sequential"},
+            "phases": {"type": "array", "items": {"type": "object", "properties": {
+                "name": {"type": "string"}, "cif": {"type": "string"},
+                "formula": {"type": "string", "description": "what the phase IS, e.g. LiFePO4"},
+                "source_id": {"type": "string", "description": "COD/ICSD/mp id the CIF must carry"},
+                "method": {"type": "string", "enum": ["rietveld", "lebail"]}},
+                "required": ["name", "cif", "formula"]}},
+            "wavelength_a": {"type": "number", "description": "only if no irf_file"},
+            "irf_file": {"type": "string", "description": "FullProf IRF (Res=1); supplies wavelength"},
+            "synchrotron_polarisation": {"type": "boolean",
+                                         "description": "Ilo=3 (x,y,sigma synchrotron data)"},
+            "steps": {"type": "array", "items": {"type": "array", "items": {"type": "string"}},
+                      "description": "groups freed per stage: scale zero background cell strain size"},
+            "n_background": {"type": "integer", "description": "Chebyshev terms (12)"},
+            "work_dir": {"type": "string"},
+        },
+        "required": ["data_files", "phases", "work_dir"],
+    },
+)
+async def vidur_rietveld(args: dict) -> dict:
+    def _run() -> dict:
+        try:
+            import rietveld as rv
+            phases = [rv.Phase(p["name"], p["cif"], p["formula"], p.get("source_id"),
+                               p.get("method", "rietveld")) for p in args["phases"]]
+            if args.get("irf_file"):
+                irf = rv.read_irf(args["irf_file"])
+                lam = irf.get("wavelength")
+                cthm = irf.get("cthm", 0.0)
+            else:
+                lam, cthm = args.get("wavelength_a"), 0.0
+            if not lam:
+                return _ok({"status": "needs_input",
+                            "questions": {"wavelength_a": "No IRF file and no wavelength given; "
+                                          "none is assumed."}})
+            inst = rv.Instrument(float(lam), args.get("irf_file"), cthm,
+                                 3 if args.get("synchrotron_polarisation") else 0)
+            steps = [tuple(s) for s in args["steps"]] if args.get("steps") else rv.PAPER_STEPS
+            reps = rv.refine_sequence(args["data_files"], phases, inst, args["work_dir"],
+                                      steps, int(args.get("n_background", 12)))
+            states = [r.get("status") for r in reps]
+            # 2026-09-28: the envelope said only "success" even when every pattern
+            # was rejected; the outcome now leads the result.
+            overall = ("ok" if all(s == "ok" for s in states) else
+                       "rejected" if all(s == "rejected" for s in states) else
+                       "failed" if not any(s == "ok" for s in states) else "partial")
+            return _ok({"refinement_status": overall, "pattern_status": states,
+                        "patterns": [rv.summary(r) for r in reps],
+                        "engine": "FullProf fp2k", "work_dir": args["work_dir"]})
+        except FileNotFoundError as exc:
+            return _err("VIDUR Rietveld: FullProf or an input file is missing", str(exc))
+        except Exception as exc:
+            return _err("VIDUR Rietveld failed", f"{type(exc).__name__}: {exc}")
+
+    return await asyncio.to_thread(_run)

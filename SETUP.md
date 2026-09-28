@@ -255,6 +255,29 @@ specifically; there is no `pip install` path around this step.
 
 ---
 
+### 4b. Optional: FullProf (required for VIDUR Rietveld refinement)
+
+`vidur_rietveld` shells out to FullProf's `fp2k`. Like QE, FullProf is not a
+Python package. It is free from the ILL; no root access is needed.
+
+1. Download the Linux build from
+   <https://www2017.ill.eu/sites/fullprof/downloads.html> (verified 2026-09-27:
+   `Classic_FullProf_Suite_July2026_LinuxMint.tgz`, ~360 MB; an Ubuntu build is
+   also listed).
+2. Unpack it into `~/FullProf_Suite` (the default VIDUR looks in), or anywhere
+   else and set `FULLPROF`:
+   ```bash
+   mkdir -p ~/FullProf_Suite && cd ~/FullProf_Suite
+   tar -xzf /path/to/Classic_FullProf_Suite_July2026_LinuxMint.tgz
+   echo | ./fp2k          # prints the FullProf banner (v8.50 tested)
+   export FULLPROF=$HOME/FullProf_Suite   # only if installed elsewhere
+   ```
+3. Without FullProf, every other VIDUR tool works; `vidur_rietveld` returns
+   "FullProf or an input file is missing". Method, defaults and limits:
+   `agents/vidur/RIETVELD-METHODS.md`.
+
+---
+
 ### 5. Optional: Ollama (local model for SHANI S5.5)
 
 SHANI's finding-reconstruction stage (S5_5) currently runs against a

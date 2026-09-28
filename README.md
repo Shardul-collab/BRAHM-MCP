@@ -30,7 +30,7 @@ Literature Discovery → Knowledge Extraction → Gap Analysis → Simulation �
 | **SHANI** | Literature pipeline — discovery, download, content extraction, knowledge extraction |
 | **Chitragupta** | Knowledge custodian — context management, research memory, database access |
 | **GANESH** | Document synthesis — literature reviews, research reports, manuscript drafts |
-| **VIDUR** | Characterisation data preparation — reads instrument files (XRD, Raman, UV-Vis, SEM/EDS, I-V/I-T), identifies technique and sample naming, and emits plot-ready CSVs. Normalisation yes, filtering never. Interpretation is intended future scope, not current behaviour |
+| **VIDUR** | Characterisation data preparation — reads instrument files (XRD, Raman, UV-Vis, SEM/EDS, I-V/I-T), identifies technique and sample naming, and emits plot-ready CSVs. Normalisation yes, filtering never. For XRD also: line-profile analysis (size/strain) and Rietveld refinement via FullProf with strict CIF identity checks |
 | **Vishwakarma** | Computational engine — structure generation, DFT via Quantum ESPRESSO |
 
 ---
@@ -96,15 +96,19 @@ Stated plainly, so the system is not read as further along than it is.
   cited source, with 0 fabricated. The first 50-claim audit measured **86% supported, 0 fabricated** —
   the fabrication half is met, the support half is not. The remaining failures are correctly-copied
   numbers attached to the wrong subject, which no threshold change reaches.
-- **31 of the 64 MCP tools have never been exercised** end to end. They are the destructive,
+- **31 of the 66 MCP tools have never been exercised** end to end. They are the destructive,
   long-running and costly ones; there is no safe harness for them yet.
 - **Chitragupta has two persistence layers** with overlapping purpose — `brahm_db/` → `brahm.db`
   (live) and `api/routers/store.py` → `brahm_knowledge.db` (unused). Consolidation is pending.
-- **VIDUR does not yet parse XPS, gas sensing or PL**, and has no phase ID. XRD line-profile
-  analysis (`vidur_xrd_profile`: size, microstrain, dislocation density) exists since 2026-09-25;
-  it models Kα2 but not peak asymmetry, and without an instrument standard its sizes are lower
-  bounds. Method and limits: `agents/vidur/XRD-LINE-PROFILE-METHODS.md`. Unsupported techniques are
-  named explicitly so they surface as a question rather than a confident wrong guess.
+- **VIDUR does not yet parse XPS, gas sensing or PL**, and has no phase ID. Two interpretation
+  tools exist on top of data preparation: XRD line-profile analysis (`vidur_xrd_profile`: size,
+  microstrain, dislocation density; models Kα2 but not peak asymmetry, and without an instrument
+  standard its sizes are lower bounds — `agents/vidur/XRD-LINE-PROFILE-METHODS.md`) and Rietveld
+  refinement through FullProf (`vidur_rietveld`; needs FullProf installed, see SETUP.md 4b; refines
+  scale, zero, background, cell and isotropic broadening, not atomic positions —
+  `agents/vidur/RIETVELD-METHODS.md`). Bruker RAW gives channel numbers, not 2θ, until its range
+  header is decoded. Unsupported techniques are named explicitly so they surface as a question
+  rather than a confident wrong guess.
 - Quantum ESPRESSO binaries and pseudopotentials live outside the repo; `QE_BIN_DIR`,
   `QE_PSEUDO_DIR` and `VISHWAKARMA_WORKDIR` must be set for Vishwakarma to run.
 
