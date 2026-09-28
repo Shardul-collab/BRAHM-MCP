@@ -220,12 +220,18 @@ def process(folder: str | Path, answers: dict | None = None,
         # What the file says about its own axis outranks the caller's constants.
         md = pd_.get("metadata") or {}
         if "axis_is_two_theta" in md:
-            params["axis_is_two_theta"] = md["axis_is_two_theta"]
+            # 2026-09-27: None means the file's x label is neither 2theta nor
+            # q. The file then says nothing, so a caller's answer stands.
+            if md["axis_is_two_theta"] is not None or params.get("axis_is_two_theta") is None:
+                params["axis_is_two_theta"] = md["axis_is_two_theta"]
         if md.get("wavelength_a"):
             params["wavelength_a"] = md["wavelength_a"]   # the file outranks the caller
         params.update(fparams.get(f["file"], {}))
         cols, n = prep.derive(technique, axis, y, params)
         notes.extend({"file": f["file"], "note": x} for x in n)
+        if md.get("axis_assumed"):
+            notes.append({"file": f["file"],
+                          "note": "x axis assumed 2theta: no column header in the file"})
 
         csv_path = out / f"{Path(f['file']).stem}.csv"
         _write_csv(csv_path, cols, pd_.get("axis_name", "x"), axis)

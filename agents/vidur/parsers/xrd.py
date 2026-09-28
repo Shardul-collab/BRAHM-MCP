@@ -239,14 +239,18 @@ def _parse_bruker_raw(path: str) -> dict:
 
 
 _Q_LABEL = re.compile(r"^q\b|^q[\(\[_]|q\s*\(", re.I)
-_TT_LABEL = re.compile(r"2\s*[-_]?\s*(th|theta)|^angle|^tth$", re.I)
+# 2026-09-27: also 2θ, the Spanish "2Teta", "Two Theta" and beamline motor
+# names ending in "tth" (ALBA writes dif_tth).
+_TT_LABEL = re.compile(r"2\s*[-_]?\s*(th|theta|teta|\u03b8)|two\s*[-_]?\s*theta"
+                       r"|^angle|(^|_)tth$", re.I)
 
 
 def _parse_ascii(path: str) -> dict:
-    from parsers._ascii import x_label
+    from parsers._ascii import header_label
     data = _load_ascii(path)
     axis, intensity = data[:, 0], data[:, 1]
-    label = (x_label(path) or "").strip()
+    label, is_header = header_label(path)
+    label = (label or "").strip()
 
     # 2026-09-19: the axis was always called "2Theta". Real .xy files also carry
     # q, and ixdat's fixture set has several -- labelling a q axis as degrees is
@@ -260,8 +264,25 @@ def _parse_ascii(path: str) -> dict:
         return out
 
     out = _out(axis, intensity, "ascii")
+    if not is_header and not _TT_LABEL.search(label):
+        label = ""          # a title or comment word, not a column header
     out["metadata"]["axis_label_in_file"] = label or None
-    out["metadata"]["axis_is_two_theta"] = bool(_TT_LABEL.search(label)) or not label
+    if not label or _TT_LABEL.search(label):
+        out["metadata"]["axis_is_two_theta"] = True
+        if not label:
+            # 2026-09-27 (Shardul): a file with no column header is read as 2theta,
+            # the convention for his datasets -- but recorded as an assumption, not
+            # a declaration, so every consumer can say so.
+            out["metadata"]["axis_assumed"] = "2theta"
+        return out
+
+    # 2026-09-27: a header whose x label is neither 2theta nor q. This used to
+    # set axis_is_two_theta=False, which every consumer reads as "the file
+    # declares q", so an unrecognised word became a claim the file never made.
+    # The axis is undeclared: None, and the caller is asked.
+    out["axis_name"] = label
+    out["metadata"]["units"] = "as labelled in the file"
+    out["metadata"]["axis_is_two_theta"] = None
     return out
 
 

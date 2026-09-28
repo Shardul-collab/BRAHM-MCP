@@ -837,9 +837,15 @@ def instrument_from_params(params: dict, load_pattern=None):
     return Instrument(kind="none", notes=["no standard and no stated widths"])
 
 
-def load_xrd(path):
+class AxisUndeclared(ValueError):
+    """The file has a column header, but its x label is neither 2theta nor q."""
+
+
+def load_xrd(path, axis_is_two_theta=None):
     """Parse an XRD file through VIDUR's own extractor/parser. Returns
-    (axis, intensity, metadata). Refuses an uncalibrated or q axis."""
+    (axis, intensity, metadata). Refuses an uncalibrated or q axis, and an
+    axis the file leaves undeclared unless the caller states it is 2theta
+    (axis_is_two_theta=True)."""
     from extractor import extract
     from parsers import xrd
     parsed = xrd.parse(extract(path))
@@ -847,8 +853,17 @@ def load_xrd(path):
     if not md.get("axis_calibrated", True):
         raise ValueError("axis is channel index, not 2theta: no breadth in angle "
                          "can be measured")
-    if md.get("axis_is_two_theta") is False:
-        raise ValueError("axis is q as declared by the file, not 2theta")
+    declared = md.get("axis_is_two_theta", True)
+    label = md.get("axis_label_in_file")
+    if declared is False:
+        raise ValueError(f"axis is q as declared by the file (x label {label!r}), "
+                         "not 2theta")
+    if declared is None:
+        if axis_is_two_theta is not True:
+            raise AxisUndeclared(
+                f"The file's x label {label!r} does not say whether the axis is "
+                "2theta or q. Pass axis_is_two_theta=true if it is 2theta in degrees.")
+        md = {**md, "axis_is_two_theta": True, "axis_is_two_theta_source": "caller"}
     return np.asarray(parsed["axis"]), np.asarray(parsed["intensity"]), md
 
 
@@ -857,7 +872,11 @@ def run(path, params: dict | None = None, out_dir: str | None = None):
     <stem>_peaks.csv, <stem>_fit.csv, <stem>_microstructure.json when out_dir
     is given."""
     params = params or {}
-    x, y, meta = load_xrd(path)
+    try:
+        x, y, meta = load_xrd(path, params.get("axis_is_two_theta"))
+    except AxisUndeclared as exc:
+        return {"file": path, "status": "needs_input",
+                "questions": {"axis_is_two_theta": str(exc)}}
     if "counts" not in params:
         params = {**params, "counts": is_counts(y, meta)}
     rad, q = resolve_radiation(meta, params)
@@ -871,6 +890,11 @@ def run(path, params: dict | None = None, out_dir: str | None = None):
     report, cols = analyse_pattern(x, y, rad, inst, params)
     report["file"] = path
     report["status"] = "ok"
+    if meta.get("axis_assumed"):
+        report["axis_assumed"] = meta["axis_assumed"]
+        report["caveats"].insert(0, "x axis ASSUMED to be 2theta: the file has no column "
+                                    "header declaring it. If it is q or d, every result "
+                                    "below is wrong.")
     if inst.kind == "none":
         report["questions"] = {"instrument": (
             "No instrumental broadening given. Pass instrument.standard_file (LaB6 "

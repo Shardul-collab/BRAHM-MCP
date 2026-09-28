@@ -138,6 +138,14 @@ def derive(technique: str, axis: np.ndarray, y: np.ndarray,
             notes.append("x axis is q as declared by the file, not 2theta: "
                          "d-spacing and q columns skipped")
             lam = None
+        elif "axis_is_two_theta" in p and p["axis_is_two_theta"] is None:
+            # 2026-09-27: the file has a header whose x label is neither 2theta
+            # nor q. Not q, so the q note would be false; not known to be
+            # degrees, so Bragg is not applied either.
+            notes.append("x axis label in the file is neither 2theta nor q: "
+                         "d-spacing and q columns skipped (set "
+                         "axis_is_two_theta=true if it is 2theta)")
+            lam = None
         if lam:
             cols["d_A"] = two_theta_to_d(axis, lam)
             cols["q_invA"] = two_theta_to_q(axis, lam)
