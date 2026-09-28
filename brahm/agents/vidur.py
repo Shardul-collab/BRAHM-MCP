@@ -432,3 +432,110 @@ async def vidur_process(args: dict) -> dict:
             return _err("VIDUR processing failed", f"{type(exc).__name__}: {exc}")
 
     return await asyncio.to_thread(_run)
+
+
+# =========================================================
+# XRD LINE-PROFILE ANALYSIS   (2026-09-25)
+# Formulas and limits: agents/vidur/XRD-LINE-PROFILE-METHODS.md
+# =========================================================
+
+def _compact_peak(p: dict) -> dict:
+    """One reflection, only what a model needs to read. The full table is the
+    CSV; a 30-peak report with every field is too large to hand back."""
+    keep = ("two_theta", "status", "reason", "d_A", "meas_fwhm_deg",
+            "sample_fwhm_deg", "D_scherrer_nm", "D_scherrer_err",
+            "D_intbreadth_nm", "D_voigt_nm", "D_voigt_err", "strain_voigt",
+            "strain_voigt_err", "delta_scherrer_m2", "chi2_red_poisson", "flags")
+    out = {}
+    for k in keep:
+        v = p.get(k)
+        if v is None or v == []:
+            continue
+        out[k] = float(f"{v:.5g}") if isinstance(v, float) else v
+    return out
+
+
+@brahm_tool(
+    name        = "vidur_xrd_profile",
+    group       = "vidur",
+    description = (
+        "XRD line-profile analysis of one scan: peak finding, Voigt fitting "
+        "(Kalpha2 doublet modelled when the file or caller says the beam has it), "
+        "instrumental-broadening correction, Scherrer and single-line Voigt "
+        "crystallite size and microstrain per peak, Williamson-Hall and "
+        "size-strain plot across peaks, and dislocation density delta = 1/D^2. "
+        "Nothing is assumed: wavelength, Kalpha2 ratio and instrument function come "
+        "from the file or params, and what is missing comes back as questions. "
+        "Formulas and limits: agents/vidur/XRD-LINE-PROFILE-METHODS.md. "
+        "Runs fully locally."
+    ),
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "file_path": {"type": "string",
+                          "description": "XRD scan (.xrdml, .xy, .xye, .dat, Bruker RAW v3)"},
+            "out_dir": {"type": "string",
+                        "description": "Write <stem>_peaks.csv, _fit.csv, _microstructure.json here"},
+            "params": {
+                "type": "object",
+                "description": (
+                    "wavelength_a, ka2_ratio (0 = Ka1 only), wavelength_ka2_a -- only "
+                    "when the file does not state them; instrument: {standard_file: "
+                    "LaB6/Si scan on the same optics} or {fwhm_gauss_deg, "
+                    "fwhm_lorentz_deg}; scherrer_k (0.9); ssp_k (1.0); burgers_nm; "
+                    "two_theta_range [lo, hi]; peaks [2theta,...] to fit only these; "
+                    "wh_peaks [2theta,...] to restrict the W-H/SSP fits; min_snr; "
+                    "false_alarm (0.01)."),
+            },
+            "include_all_peaks": {"type": "boolean",
+                                  "description": "Also list rejected candidates (noise, Ka2 partners)"},
+        },
+        "required": ["file_path"],
+    },
+)
+async def vidur_xrd_profile(args: dict) -> dict:
+    file_path = (args.get("file_path") or "").strip()
+    if not file_path:
+        return _err("Missing required argument: file_path")
+
+    def _run() -> dict:
+        try:
+            import os as _os
+            if not _os.path.isfile(file_path):
+                return _err(f"File not found: {file_path}")
+            import line_profile
+            rep = line_profile.run(file_path, args.get("params") or {}, args.get("out_dir"))
+            if rep.get("status") != "ok":
+                return _ok(rep)            # needs_input: questions travel back
+            from collections import Counter
+            fitted_states = ("ok", "suspect", "unresolved")
+            peaks = rep["peaks"] if args.get("include_all_peaks") else \
+                [p for p in rep["peaks"] if p.get("status") in fitted_states]
+            return _ok({
+                "file": file_path,
+                "status": "ok",
+                "method_reference": rep["method_reference"],
+                "radiation": rep["radiation"],
+                "instrument": rep["instrument"],
+                "instrument_corrected": rep["instrument_corrected"],
+                "noise": rep["noise"],
+                "candidates_by_status": dict(Counter(p["status"] for p in rep["peaks"])),
+                "peaks": [_compact_peak(p) for p in peaks],
+                "williamson_hall": {k: v for k, v in rep["williamson_hall"].items()
+                                    if k != "points"},
+                "williamson_hall_integral": {k: v for k, v in rep["williamson_hall_integral"].items()
+                                             if k != "points"},
+                "size_strain_plot": rep["size_strain_plot"],
+                "summary": rep["summary"],
+                "caveats": rep["caveats"],
+                "questions": rep.get("questions"),
+                "written": rep.get("written"),
+            })
+        except ImportError as exc:
+            return _err("VIDUR import failed", str(exc))
+        except ValueError as exc:
+            return _err("VIDUR line-profile analysis refused", str(exc))
+        except Exception as exc:
+            return _err("VIDUR line-profile analysis failed", f"{type(exc).__name__}: {exc}")
+
+    return await asyncio.to_thread(_run)

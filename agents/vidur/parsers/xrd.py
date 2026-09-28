@@ -171,6 +171,18 @@ def _parse_xrdml(path: str) -> dict:
         except ValueError:
             pass
 
+    # 2026-09-25: Kalpha2 as the file states it, for line-profile analysis
+    # (XRD-LINE-PROFILE-METHODS.md s3.4). A ratio of 0 is a Kalpha1-only beam.
+    ka2 = {}
+    for name, key in (("kAlpha2", "wavelength_ka2_a"),
+                      ("ratioKAlpha2KAlpha1", "ka2_ratio")):
+        el = root.find(f".//{tag(name)}")
+        if el is not None and el.text:
+            try:
+                ka2[key] = float(el.text)
+            except ValueError:
+                pass
+
     counts_el = None
     for name in ("intensities", "counts"):
         el = root.find(f".//{tag(name)}")
@@ -181,18 +193,23 @@ def _parse_xrdml(path: str) -> dict:
         raise ValueError("neither <intensities> nor <counts> found in XRDML")
 
     intensity = np.array([float(v) for v in counts_el.text.split()], dtype=np.float64)
+    # 2026-09-25: the unit tells line-profile analysis whether counting (Poisson)
+    # statistics apply.
+    ka2["intensity_unit"] = counts_el.get("unit")
     start_el  = root.find(f".//{tag('startPosition')}")
     end_el    = root.find(f".//{tag('endPosition')}")
     if start_el is not None and end_el is not None:
         two_theta = np.linspace(float(start_el.text), float(end_el.text), len(intensity))
         out = _out(two_theta, intensity, "xrdml")
         out["metadata"]["wavelength_a"] = wavelength
+        out["metadata"].update(ka2)
         return out
 
     # No <startPosition>/<endPosition>: index axis, not degrees.
     out = _out(np.arange(len(intensity), dtype=np.float64), intensity, "xrdml",
                calibrated=False)
     out["metadata"]["wavelength_a"] = wavelength
+    out["metadata"].update(ka2)
     return out
 
 

@@ -100,9 +100,11 @@ Stated plainly, so the system is not read as further along than it is.
   long-running and costly ones; there is no safe harness for them yet.
 - **Chitragupta has two persistence layers** with overlapping purpose — `brahm_db/` → `brahm.db`
   (live) and `api/routers/store.py` → `brahm_knowledge.db` (unused). Consolidation is pending.
-- **VIDUR does not yet parse XPS, gas sensing or PL**, and has no peak finding, phase ID, Scherrer
-  or Tauc. Unsupported techniques are named explicitly so they surface as a question rather than a
-  confident wrong guess.
+- **VIDUR does not yet parse XPS, gas sensing or PL**, and has no phase ID. XRD line-profile
+  analysis (`vidur_xrd_profile`: size, microstrain, dislocation density) exists since 2026-09-25;
+  it models Kα2 but not peak asymmetry, and without an instrument standard its sizes are lower
+  bounds. Method and limits: `agents/vidur/XRD-LINE-PROFILE-METHODS.md`. Unsupported techniques are
+  named explicitly so they surface as a question rather than a confident wrong guess.
 - Quantum ESPRESSO binaries and pseudopotentials live outside the repo; `QE_BIN_DIR`,
   `QE_PSEUDO_DIR` and `VISHWAKARMA_WORKDIR` must be set for Vishwakarma to run.
 
