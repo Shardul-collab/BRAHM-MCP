@@ -34,3 +34,9 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.7.0
 uvicorn==0.46.0
+# vishwakarma.plotting (2D DOS, 3D band surfaces); versions as installed in the root .venv
+matplotlib==3.10.9
+plotly==6.7.0
+pyvista==0.49.2
+spglib==2.7.0
+vtk==9.7.2

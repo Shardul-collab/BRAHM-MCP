@@ -526,6 +526,33 @@ async def device_simulate(params: DeviceSimParams):
         return _err("Device simulation failed", f"{type(exc).__name__}: {exc}")
 
 
+class PlotParams(BaseModel):
+    job_id:     Optional[str] = None        # NSCF/SCF job (uniform k-mesh)
+    save_dir:   Optional[str] = None        # or a QE .save dir directly
+    kind:       str = "all"                 # "dos" | "bands3d" | "all"
+    sigma_eV:   float = 0.05
+    energy_window_eV: list = [-14.0, 10.0]
+    bands:      Optional[list] = None       # 0-based [valence, conduction] for bands3d
+    out_dir:    Optional[str] = None
+
+
+@app.post("/plot", tags=["Plot"])
+async def plot(params: PlotParams):
+    """DOS (2D) and band surfaces (3D) for a finished job; files go to <job>/plots/."""
+    from vishwakarma import plotting
+    if not (params.job_id or params.save_dir):
+        return _err("Pass job_id (an NSCF/SCF job) or save_dir")
+    try:
+        res = await asyncio.to_thread(
+            plotting.plot_job, job_id=params.job_id, workdir=_WORKDIR, save_dir=params.save_dir,
+            kind=params.kind, out_dir=params.out_dir, sigma_eV=params.sigma_eV,
+            window_eV=tuple(params.energy_window_eV),
+            bands=tuple(params.bands) if params.bands else None)
+        return _ok(res)
+    except Exception as exc:
+        return _err("Plotting failed", f"{type(exc).__name__}: {exc}")
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

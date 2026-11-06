@@ -957,3 +957,55 @@ async def vishwakarma_device_simulate(args: dict) -> dict:
             return _err("Device simulation failed", f"{type(exc).__name__}: {exc}")
     return await asyncio.to_thread(_run)
 
+
+# =========================================================
+# PLOTTING  (vishwakarma.plotting)
+# =========================================================
+
+@brahm_tool(
+    name="vishwakarma_plot", group="vishwakarma",
+    description=(
+        "Visualise a finished Vishwakarma DFT job. kind='dos' writes a 2D density of "
+        "states built from the eigenvalues on the full k-grid (broadening sigma_eV is "
+        "explicit, default 0.05 eV; dos.x's own degauss is in Ry and can swallow a gap). "
+        "kind='bands3d' writes 3D surfaces of the highest valence and lowest conduction "
+        "band over the k_z=0 plane of the first Brillouin zone, as a PNG and an "
+        "interactive HTML (rotate/zoom). kind='all' does both. The job must be a "
+        "uniform-mesh NSCF or SCF (not a bands path). Returns the file paths (under "
+        "<job folder>/plots/), the band edges read from the k-grid, and the electron "
+        "count the DOS integrates to as a check."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "job_id":    {"type": "string", "description": "Job id of an NSCF/SCF job (vishwakarma_list_jobs)."},
+            "save_dir":  {"type": "string", "description": "Alternatively, a QE .save directory path."},
+            "kind":      {"type": "string", "enum": ["dos", "bands3d", "all"], "default": "all"},
+            "sigma_eV":  {"type": "number", "default": 0.05, "description": "Gaussian broadening for the DOS."},
+            "energy_window_eV": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2,
+                                 "default": [-14.0, 10.0], "description": "DOS window relative to the Fermi level."},
+            "bands":     {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2,
+                          "description": "0-based band indices for bands3d; default highest valence + lowest conduction."},
+            "out_dir":   {"type": "string", "description": "Output folder; default <job folder>/plots."},
+        },
+        "required": [],
+    },
+)
+async def vishwakarma_plot(args: dict) -> dict:
+    def _run() -> dict:
+        try:
+            from vishwakarma import plotting
+        except ImportError as exc:
+            return _err("Plotting module import failed (pip install pyvista spglib matplotlib plotly scipy?)", str(exc))
+        if not (args.get("job_id") or args.get("save_dir")):
+            return _err("Pass job_id (an NSCF/SCF job) or save_dir")
+        try:
+            return _ok(plotting.plot_job(
+                job_id=args.get("job_id"), workdir=QE_WORKDIR, save_dir=args.get("save_dir"),
+                kind=args.get("kind", "all"), out_dir=args.get("out_dir"),
+                sigma_eV=args.get("sigma_eV", 0.05),
+                window_eV=tuple(args.get("energy_window_eV") or (-14.0, 10.0)),
+                bands=tuple(args["bands"]) if args.get("bands") else None))
+        except Exception as exc:
+            return _err("Plotting failed", f"{type(exc).__name__}: {exc}")
+    return await asyncio.to_thread(_run)
