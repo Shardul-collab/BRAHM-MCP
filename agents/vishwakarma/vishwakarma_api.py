@@ -474,6 +474,58 @@ async def list_pseudopotentials(functional: str = "pbe", type: str = "us"):
         return _err("Failed to list pseudopotentials", str(exc))
 
 
+# ── Device simulation (DFT -> BoltzTraP2 -> DEVSIM) ──────────────────────────
+#
+# Synchronous: band transport takes ~5-15 s, a 1D diode ~5 s, a 2D MOSFET
+# ~1-2 min. Each DEVSIM run happens in its own subprocess (device/tcad.py),
+# so these handlers run in a worker thread and never touch DEVSIM state here.
+
+class DeviceMaterialParams(BaseModel):
+    name:          str
+    job_id:        Optional[str] = None     # NSCF (dense uniform mesh) job
+    save_dir:      Optional[str] = None     # or a QE .save dir directly
+    T:             float = 300.0
+    overrides:     Optional[dict] = None    # {key: value | {value, source, ref, note}}
+    interp_factor: int = 8
+    allow_dft_gap: bool = False
+
+class DeviceSimParams(BaseModel):
+    device:   str                           # "pn_diode_1d" | "nmosfet_2d"
+    material: dict                          # "material" from /device/material
+    options:  Optional[dict] = None         # geometry / doping / bias overrides
+
+
+@app.post("/device/material", tags=["Device"])
+async def device_material(params: DeviceMaterialParams):
+    """Build a provenance-tagged material parameter set from a DFT job."""
+    from vishwakarma.device import pipeline
+    try:
+        res = await asyncio.to_thread(
+            pipeline.material_from_dft, params.name, job_id=params.job_id,
+            workdir=_WORKDIR, save_dir=params.save_dir, T=params.T,
+            overrides=params.overrides, interp_factor=params.interp_factor,
+            allow_dft_gap=params.allow_dft_gap)
+        return _ok(res)
+    except Exception as exc:
+        return _err("Material extraction failed", f"{type(exc).__name__}: {exc}")
+
+
+@app.post("/device/simulate", tags=["Device"])
+async def device_simulate(params: DeviceSimParams):
+    """Drift-diffusion simulation with an analytic cross-check on the result."""
+    from vishwakarma.device import tcad
+    from vishwakarma.device.params import MaterialParams
+    runners = {"pn_diode_1d": tcad.pn_diode_1d, "nmosfet_2d": tcad.nmosfet_2d}
+    if params.device not in runners:
+        return _err(f"Unknown device {params.device!r}", f"choose from {sorted(runners)}")
+    try:
+        m = MaterialParams.from_dict(params.material)
+        res = await asyncio.to_thread(runners[params.device], m, **(params.options or {}))
+        return _ok(res)
+    except Exception as exc:
+        return _err("Device simulation failed", f"{type(exc).__name__}: {exc}")
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

@@ -1,0 +1,2683 @@
+{
+ "nscf_job_id": "1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+ "started": "2026-10-15 17:56:12",
+ "transport_seconds": 18.7,
+ "material_dft": {
+  "material": {
+   "name": "Si (DFT band edges)",
+   "T_K": 300.0,
+   "params": {
+    "Nc_cm3": {
+     "value": 2.8339973743574974e+19,
+     "unit": "cm^-3",
+     "source": "dft+boltztrap2",
+     "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+     "note": "BoltzTraP2 interp x8, 145 irreducible k"
+    },
+    "Nv_cm3": {
+     "value": 2.2603601479932932e+19,
+     "unit": "cm^-3",
+     "source": "dft+boltztrap2",
+     "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+     "note": "BoltzTraP2 interp x8, 145 irreducible k"
+    },
+    "m_cond_n": {
+     "value": 0.27514707978063707,
+     "unit": "m_e",
+     "source": "dft+boltztrap2",
+     "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+     "note": "BoltzTraP2 interp x8, 145 irreducible k"
+    },
+    "m_cond_p": {
+     "value": 0.3394146006525182,
+     "unit": "m_e",
+     "source": "dft+boltztrap2",
+     "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+     "note": "BoltzTraP2 interp x8, 145 irreducible k"
+    },
+    "band_gap_dft_eV": {
+     "value": 0.5733628130419078,
+     "unit": "eV",
+     "source": "dft",
+     "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+     "note": "uncorrected; informational unless allow_dft_gap"
+    },
+    "band_gap_eV": {
+     "value": 1.12,
+     "unit": "eV",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere; DFT gap 0.573 eV -> scissor +0.547 eV"
+    },
+    "electron_affinity_eV": {
+     "value": 4.05,
+     "unit": "eV",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    },
+    "eps_r": {
+     "value": 11.8,
+     "unit": "",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    },
+    "mu_n_cm2Vs": {
+     "value": 1500.0,
+     "unit": "cm^2/(V s)",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    },
+    "mu_p_cm2Vs": {
+     "value": 450.0,
+     "unit": "cm^2/(V s)",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    },
+    "srh_lifetime_n_s": {
+     "value": 1e-06,
+     "unit": "s",
+     "source": "assumed",
+     "ref": "",
+     "note": "placeholder; set from measurement or SHANI"
+    },
+    "srh_lifetime_p_s": {
+     "value": 1e-06,
+     "unit": "s",
+     "source": "assumed",
+     "ref": "",
+     "note": "placeholder; set from measurement or SHANI"
+    },
+    "tau_momentum_n_s": {
+     "value": 2.346576779563485e-13,
+     "unit": "s",
+     "source": "derived",
+     "ref": "mu_n_cm2Vs*m_cond_n/e",
+     "note": "implied by the given mobility and DFT conductivity mass"
+    },
+    "tau_momentum_p_s": {
+     "value": 8.684036419768632e-14,
+     "unit": "s",
+     "source": "derived",
+     "ref": "mu_p_cm2Vs*m_cond_p/e",
+     "note": "implied by the given mobility and DFT conductivity mass"
+    }
+   },
+   "warnings": [],
+   "missing": [],
+   "derived": {
+    "ni_cm3": 9901536589.544289,
+    "intrinsic_workfunction_eV": 4.612923396572513,
+    "Dn_cm2s": 38.777999679653306,
+    "Dp_cm2s": 11.633399903895992,
+    "Ln_cm": 0.006227198381266916,
+    "Lp_cm": 0.0034107770234795463
+   },
+   "assumed": [
+    "srh_lifetime_n_s",
+    "srh_lifetime_p_s"
+   ]
+  },
+  "transport": {
+   "save_dir": "/media/shardul/4202386902386457/brahm/agents/vishwakarma/jobs/5fd2b783-8f55-4521-970c-a47ffffc7480/out/si_dev.save",
+   "run": {
+    "calculation": "nscf",
+    "nks": 145,
+    "nbnd": 16,
+    "lsda": false,
+    "noncolin": false
+   },
+   "T_K": 300.0,
+   "interp_factor": 8,
+   "n_valence_bands": 4,
+   "band_gap_dft_eV": 0.5733628130419078,
+   "band_gap_dft_grid_eV": 0.5795838085593611,
+   "electrons": {
+    "Neff_cm3": 2.8339973743574974e+19,
+    "m_cond": 0.27514707978063707,
+    "m_cond_principal": [
+     0.27514707978063696,
+     0.27514707978063707,
+     0.2751470797806371
+    ],
+    "carriers_cm3_at_probe": 1786884150784684.5,
+    "sigma_over_tau_SI": [
+     [
+      183005137035280.7,
+      0.01613946968003434,
+      0.018894369080935718
+     ],
+     [
+      0.01613946968003434,
+      183005137035280.62,
+      0.025947167001867673
+     ],
+     [
+      0.018894369080935718,
+      0.025947167001867673,
+      183005137035280.7
+     ]
+    ]
+   },
+   "holes": {
+    "Neff_cm3": 2.2603601479932932e+19,
+    "m_cond": 0.3394146006525182,
+    "m_cond_principal": [
+     0.3394146006525182,
+     0.3394146006525182,
+     0.3394146006525182
+    ],
+    "carriers_cm3_at_probe": 1425144737980693.2,
+    "sigma_over_tau_SI": [
+     [
+      118320567763659.75,
+      -0.007199075095255646,
+      0.0039123124582856866
+     ],
+     [
+      -0.007199075095255646,
+      118320567763659.75,
+      -0.004966265023077255
+     ],
+     [
+      0.0039123124582856866,
+      -0.004966265023077255,
+      118320567763659.75
+     ]
+    ]
+   },
+   "warnings": [],
+   "notes": [
+    "band gap is the uncorrected DFT value; supply a corrected gap (hybrid / GW / DFT+U / literature) for device simulation",
+    "no spin-orbit coupling unless the DFT run included it; for heavy elements this mostly affects the valence band (Nv, m_cond_p)"
+   ],
+   "convergence": {
+    "compared_interp_factor": 16,
+    "relative_change": {
+     "Nc": 0.031164714851369957,
+     "Nv": 0.011270644252185713,
+     "m_cond_n": 0.0005809858686744995,
+     "m_cond_p": 0.014615050601899937,
+     "gap": 0.0008434692141490174
+    }
+   }
+  },
+  "ready_for_simulation": true,
+  "problems": []
+ },
+ "material_literature": {
+  "material": {
+   "name": "Si (literature table)",
+   "T_K": 300.0,
+   "params": {
+    "band_gap_eV": {
+     "value": 1.12,
+     "unit": "eV",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    },
+    "electron_affinity_eV": {
+     "value": 4.05,
+     "unit": "eV",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    },
+    "eps_r": {
+     "value": 11.8,
+     "unit": "",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    },
+    "mu_n_cm2Vs": {
+     "value": 1500.0,
+     "unit": "cm^2/(V s)",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    },
+    "mu_p_cm2Vs": {
+     "value": 450.0,
+     "unit": "cm^2/(V s)",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    },
+    "srh_lifetime_n_s": {
+     "value": 1e-06,
+     "unit": "s",
+     "source": "assumed",
+     "ref": "",
+     "note": "placeholder; set from measurement or SHANI"
+    },
+    "srh_lifetime_p_s": {
+     "value": 1e-06,
+     "unit": "s",
+     "source": "assumed",
+     "ref": "",
+     "note": "placeholder; set from measurement or SHANI"
+    },
+    "Nc_cm3": {
+     "value": 2.8e+19,
+     "unit": "cm^-3",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    },
+    "Nv_cm3": {
+     "value": 1.04e+19,
+     "unit": "cm^-3",
+     "source": "literature",
+     "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+     "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+    }
+   },
+   "warnings": [],
+   "missing": [],
+   "derived": {
+    "ni_cm3": 6675898719.7148075,
+    "intrinsic_workfunction_eV": 4.622801893542507,
+    "Dn_cm2s": 38.777999679653306,
+    "Dp_cm2s": 11.633399903895992,
+    "Ln_cm": 0.006227198381266916,
+    "Lp_cm": 0.0034107770234795463
+   },
+   "assumed": [
+    "srh_lifetime_n_s",
+    "srh_lifetime_p_s"
+   ]
+  },
+  "problems": []
+ },
+ "diode_dft": {
+  "success": true,
+  "device": "pn_diode_1d",
+  "mesh_nodes": 3465,
+  "iv": [
+   {
+    "V": -2.0,
+    "J_A_cm2": -2.7919642942531994e-08
+   },
+   {
+    "V": -1.0,
+    "J_A_cm2": -1.728969316940194e-08
+   },
+   {
+    "V": -0.5,
+    "J_A_cm2": -1.0397835673525067e-08
+   },
+   {
+    "V": 0.05,
+    "J_A_cm2": 3.910282267486459e-09
+   },
+   {
+    "V": 0.1,
+    "J_A_cm2": 1.4040301744633316e-08
+   },
+   {
+    "V": 0.15,
+    "J_A_cm2": 4.278738142061663e-08
+   },
+   {
+    "V": 0.2,
+    "J_A_cm2": 1.3016403671598715e-07
+   },
+   {
+    "V": 0.25,
+    "J_A_cm2": 4.2648817994089173e-07
+   },
+   {
+    "V": 0.3,
+    "J_A_cm2": 1.617550742840927e-06
+   },
+   {
+    "V": 0.35,
+    "J_A_cm2": 7.444316693876136e-06
+   },
+   {
+    "V": 0.4,
+    "J_A_cm2": 4.0905177180958784e-05
+   },
+   {
+    "V": 0.425,
+    "J_A_cm2": 0.0001005845168748828
+   },
+   {
+    "V": 0.45,
+    "J_A_cm2": 0.0002526426563431684
+   },
+   {
+    "V": 0.475,
+    "J_A_cm2": 0.0006440368461377781
+   },
+   {
+    "V": 0.5,
+    "J_A_cm2": 0.0016579309679439996
+   },
+   {
+    "V": 0.525,
+    "J_A_cm2": 0.004292440725038253
+   },
+   {
+    "V": 0.55,
+    "J_A_cm2": 0.011130772854630594
+   },
+   {
+    "V": 0.575,
+    "J_A_cm2": 0.028730227961821408
+   },
+   {
+    "V": 0.6,
+    "J_A_cm2": 0.07292085938122114
+   },
+   {
+    "V": 0.625,
+    "J_A_cm2": 0.17762278712201018
+   },
+   {
+    "V": 0.65,
+    "J_A_cm2": 0.3994308049548077
+   },
+   {
+    "V": 0.675,
+    "J_A_cm2": 0.7985412370501558
+   },
+   {
+    "V": 0.7,
+    "J_A_cm2": 1.4035056572083089
+   }
+  ],
+  "analytic_check": {
+   "J0_diffusion_A_cm2": 6.335867774750766e-12,
+   "V_bi": 0.7743551994708688,
+   "R_series_ohm_cm2": 0.016630995899393347,
+   "rows": [
+    {
+     "V": 0.05,
+     "V_junction": 0.04999999993496811,
+     "J_sim": 3.910282267486459e-09,
+     "J_diffusion": 3.7493896485516896e-11,
+     "J_srh_bound": 4.1683048674604686e-08,
+     "ratio": 104.29116827046553,
+     "in_window": false
+    },
+    {
+     "V": 0.1,
+     "V_junction": 0.0999999997664958,
+     "J_sim": 1.4040301744633316e-08,
+     "J_diffusion": 2.9686620262164174e-10,
+     "J_srh_bound": 1.4600016016749318e-07,
+     "ratio": 47.29504948910533,
+     "in_window": false
+    },
+    {
+     "V": 0.15,
+     "V_junction": 0.14999999928840324,
+     "J_sim": 4.278738142061663e-08,
+     "J_diffusion": 2.091131365851187e-09,
+     "J_srh_bound": 4.081921014163688e-07,
+     "ratio": 20.461355091960083,
+     "in_window": false
+    },
+    {
+     "V": 0.2,
+     "V_junction": 0.19999999783524244,
+     "J_sim": 1.3016403671598715e-07,
+     "J_diffusion": 1.450335604955512e-08,
+     "J_srh_bound": 1.0668403278368694e-06,
+     "ratio": 8.974752896587672,
+     "in_window": false
+    },
+    {
+     "V": 0.25,
+     "V_junction": 0.24999999290707683,
+     "J_sim": 4.2648817994089173e-07,
+     "J_diffusion": 1.0036764273607644e-07,
+     "J_srh_bound": 2.7165054366842853e-06,
+     "ratio": 4.249259704767317,
+     "in_window": false
+    },
+    {
+     "V": 0.3,
+     "V_junction": 0.2999999730985202,
+     "J_sim": 1.617550742840927e-06,
+     "J_diffusion": 6.943522927419517e-07,
+     "J_srh_bound": 6.829381112234098e-06,
+     "ratio": 2.3295822016419434,
+     "in_window": false
+    },
+    {
+     "V": 0.35,
+     "V_junction": 0.34999987619359957,
+     "J_sim": 7.444316693876136e-06,
+     "J_diffusion": 4.803354794000658e-06,
+     "J_srh_bound": 1.702118645454943e-05,
+     "ratio": 1.5498161208441261,
+     "in_window": false
+    },
+    {
+     "V": 0.4,
+     "V_junction": 0.39999931970616603,
+     "J_sim": 4.0905177180958784e-05,
+     "J_diffusion": 3.322758964921956e-05,
+     "J_srh_bound": 4.2077851897204645e-05,
+     "ratio": 1.2310606219948774,
+     "in_window": false
+    },
+    {
+     "V": 0.425,
+     "V_junction": 0.4249983271793123,
+     "J_sim": 0.0001005845168748828,
+     "J_diffusion": 8.739040081999814e-05,
+     "J_srh_bound": 6.59327254983063e-05,
+     "ratio": 1.1509790083473947,
+     "in_window": false
+    },
+    {
+     "V": 0.45,
+     "V_junction": 0.4499957983010184,
+     "J_sim": 0.0002526426563431684,
+     "J_diffusion": 0.000229827917944624,
+     "J_srh_bound": 0.00010303718466601404,
+     "ratio": 1.0992687859794368,
+     "in_window": false
+    },
+    {
+     "V": 0.475,
+     "V_junction": 0.4749892890258528,
+     "J_sim": 0.0006440368461377781,
+     "J_diffusion": 0.0006043311138113828,
+     "J_srh_bound": 0.00016052609356602925,
+     "ratio": 1.0657019495090696,
+     "in_window": false
+    },
+    {
+     "V": 0.5,
+     "V_junction": 0.49997242695687066,
+     "J_sim": 0.0016579309679439996,
+     "J_diffusion": 0.001588448731185076,
+     "J_srh_bound": 0.0002491661540250579,
+     "ratio": 1.0437421966443234,
+     "in_window": false
+    },
+    {
+     "V": 0.525,
+     "V_junction": 0.5249286124359035,
+     "J_sim": 0.004292440725038253,
+     "J_diffusion": 0.004170793296056973,
+     "J_srh_bound": 0.0003849596712284478,
+     "ratio": 1.0291664967180907,
+     "in_window": false
+    },
+    {
+     "V": 0.55,
+     "V_junction": 0.5498148841622976,
+     "J_sim": 0.011130772854630594,
+     "J_diffusion": 0.010921684620374204,
+     "J_srh_bound": 0.0005910619140889277,
+     "ratio": 1.0191443208190007,
+     "in_window": false
+    },
+    {
+     "V": 0.575,
+     "V_junction": 0.5745221876965783,
+     "J_sim": 0.028730227961821408,
+     "J_diffusion": 0.028402336116684062,
+     "J_srh_bound": 0.0008991985919881378,
+     "ratio": 1.011544537878514,
+     "in_window": true
+    },
+    {
+     "V": 0.6,
+     "V_junction": 0.5987872534866506,
+     "J_sim": 0.07292085938122114,
+     "J_diffusion": 0.07260879452289444,
+     "J_srh_bound": 0.0013476112475379986,
+     "ratio": 1.004297893394006,
+     "in_window": true
+    },
+    {
+     "V": 0.625,
+     "V_junction": 0.622045956155735,
+     "J_sim": 0.17762278712201018,
+     "J_diffusion": 0.17853288951819832,
+     "J_srh_bound": 0.0019682085623526405,
+     "ratio": 0.9949023264080685,
+     "in_window": true
+    },
+    {
+     "V": 0.65,
+     "V_junction": 0.6433570679207052,
+     "J_sim": 0.3994308049548077,
+     "J_diffusion": 0.4071262962509773,
+     "J_srh_bound": 0.0027564293871260226,
+     "ratio": 0.981098024453263,
+     "in_window": true
+    },
+    {
+     "V": 0.675,
+     "V_junction": 0.6617194639611225,
+     "J_sim": 0.7985412370501558,
+     "J_diffusion": 0.8283308392768705,
+     "J_srh_bound": 0.003645778428070832,
+     "ratio": 0.9640365892295875,
+     "in_window": false
+    },
+    {
+     "V": 0.7,
+     "V_junction": 0.6766583031701932,
+     "J_sim": 1.4035056572083089,
+     "J_diffusion": 1.4762682641876024,
+     "J_srh_bound": 0.0045328733274630165,
+     "ratio": 0.9507117989701316,
+     "in_window": false
+    }
+   ],
+   "tolerances": {
+    "ratio": [
+     0.8,
+     1.25
+    ],
+    "ideality": [
+     0.97,
+     1.08
+    ]
+   },
+   "reverse_info": {
+    "V": -2.0,
+    "J_sim": -2.7919642942531994e-08,
+    "J_generation_bound": -5.004210136816723e-08,
+    "note": "informational; qniW/2tau is an upper estimate"
+   },
+   "window_Vj": [
+    0.5745221876965783,
+    0.6433570679207052
+   ],
+   "n_window_points": 4,
+   "ratio_range": [
+    0.981098024453263,
+    1.011544537878514
+   ],
+   "ideality_factor": 1.0116110401912302,
+   "pass": true,
+   "summary": "J_sim/J_diffusion 0.981-1.012 over Vj 0.575-0.643 V (4 pts), ideality 1.012"
+  },
+  "solver_log_tail": "\n      Equation: \"ElectronContinuityEquation\"\tRelError: 1.00000e+00\tAbsError: 3.90698e+13\n      Equation: \"HoleContinuityEquation\"\tRelError: 9.99000e+02\tAbsError: 1.03048e+13\n      Equation: \"PotentialEquation\"\tRelError: 2.88088e+00\tAbsError: 4.98586e-02\nIteration: 4\n  Device: \"diode\"\tRelError: 2.45461e+01\tAbsError: 7.43329e+11\n    Region: \"semi\"\tRelError: 2.45461e+01\tAbsError: 7.43329e+11\n      Equation: \"ElectronContinuityEquation\"\tRelError: 2.33906e+01\tAbsError: 4.27969e+10\n      Equation: \"HoleContinuityEquation\"\tRelError: 1.12051e+00\tAbsError: 7.00532e+11\n      Equation: \"PotentialEquation\"\tRelError: 3.49682e-02\tAbsError: 4.13214e-02\nIteration: 5\n  Device: \"diode\"\tRelError: 1.19323e+00\tAbsError: 5.22023e+10\n    Region: \"semi\"\tRelError: 1.19323e+00\tAbsError: 5.22023e+10\n      Equation: \"ElectronContinuityEquation\"\tRelError: 8.70701e-01\tAbsError: 8.40693e+08\n      Equation: \"HoleContinuityEquation\"\tRelError: 3.05011e-01\tAbsError: 5.13616e+10\n      Equation: \"PotentialEquation\"\tRelError: 1.75207e-02\tAbsError: 3.11957e-02\nIteration: 6\n  Device: \"diode\"\tRelError: 5.93419e-02\tAbsError: 6.05307e+10\n    Region: \"semi\"\tRelError: 5.93419e-02\tAbsError: 6.05307e+10\n      Equation: \"ElectronContinuityEquation\"\tRelError: 2.37306e-03\tAbsError: 5.52836e+08\n      Equation: \"HoleContinuityEquation\"\tRelError: 4.60707e-02\tAbsError: 5.99779e+10\n      Equation: \"PotentialEquation\"\tRelError: 1.08981e-02\tAbsError: 2.57914e-02\nIteration: 7\n  Device: \"diode\"\tRelError: 7.11706e-03\tAbsError: 1.58282e+13\n    Region: \"semi\"\tRelError: 7.11706e-03\tAbsError: 1.58282e+13\n      Equation: \"ElectronContinuityEquation\"\tRelError: 7.18313e-04\tAbsError: 3.96820e+10\n      Equation: \"HoleContinuityEquation\"\tRelError: 2.38935e-03\tAbsError: 1.57886e+13\n      Equation: \"PotentialEquation\"\tRelError: 4.00940e-03\tAbsError: 9.69048e-03\nIteration: 8\n  Device: \"diode\"\tRelError: 2.34404e-03\tAbsError: 1.58775e+13\n    Region: \"semi\"\tRelError: 2.34404e-03\tAbsError: 1.58775e+13\n      Equation: \"ElectronContinuityEquation\"\tRelError: 8.31939e-04\tAbsError: 4.01663e+10\n      Equation: \"HoleContinuityEquation\"\tRelError: 1.11076e-03\tAbsError: 1.58374e+13\n      Equation: \"PotentialEquation\"\tRelError: 4.01343e-04\tAbsError: 4.66443e-06\nIteration: 9\n  Device: \"diode\"\tRelError: 8.48446e-07\tAbsError: 1.53792e+08\n    Region: \"semi\"\tRelError: 8.48446e-07\tAbsError: 1.53792e+08\n      Equation: \"ElectronContinuityEquation\"\tRelError: 8.20778e-07\tAbsError: 1.60732e+05\n      Equation: \"HoleContinuityEquation\"\tRelError: 2.73019e-08\tAbsError: 1.53631e+08\n      Equation: \"PotentialEquation\"\tRelError: 3.65710e-10\tAbsError: 2.86263e-11\nIteration: 10\n  Device: \"diode\"\tRelError: 3.92466e-15\tAbsError: 2.82844e+01\n    Region: \"semi\"\tRelError: 3.92466e-15\tAbsError: 2.82844e+01\n      Equation: \"ElectronContinuityEquation\"\tRelError: 1.44966e-15\tAbsError: 4.09986e+00\n      Equation: \"HoleContinuityEquation\"\tRelError: 1.80969e-15\tAbsError: 2.41845e+01\n      Equation: \"PotentialEquation\"\tRelError: 6.65316e-16\tAbsError: 2.23702e-16\n",
+  "inputs": {
+   "NA": 1e+17,
+   "ND": 1e+16,
+   "length_p_cm": 0.03,
+   "length_n_cm": 0.03,
+   "v_forward": [
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25,
+    0.3,
+    0.35,
+    0.4,
+    0.425,
+    0.45,
+    0.475,
+    0.5,
+    0.525,
+    0.55,
+    0.575,
+    0.6,
+    0.625,
+    0.65,
+    0.675,
+    0.7
+   ],
+   "v_reverse": [
+    -0.5,
+    -1.0,
+    -2.0
+   ]
+  },
+  "material": "Si (DFT band edges)",
+  "provenance": [
+   {
+    "param": "Nc_cm3",
+    "value": 2.8339973743574974e+19,
+    "unit": "cm^-3",
+    "source": "dft+boltztrap2",
+    "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+    "note": "BoltzTraP2 interp x8, 145 irreducible k"
+   },
+   {
+    "param": "Nv_cm3",
+    "value": 2.2603601479932932e+19,
+    "unit": "cm^-3",
+    "source": "dft+boltztrap2",
+    "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+    "note": "BoltzTraP2 interp x8, 145 irreducible k"
+   },
+   {
+    "param": "m_cond_n",
+    "value": 0.27514707978063707,
+    "unit": "m_e",
+    "source": "dft+boltztrap2",
+    "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+    "note": "BoltzTraP2 interp x8, 145 irreducible k"
+   },
+   {
+    "param": "m_cond_p",
+    "value": 0.3394146006525182,
+    "unit": "m_e",
+    "source": "dft+boltztrap2",
+    "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+    "note": "BoltzTraP2 interp x8, 145 irreducible k"
+   },
+   {
+    "param": "band_gap_dft_eV",
+    "value": 0.5733628130419078,
+    "unit": "eV",
+    "source": "dft",
+    "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+    "note": "uncorrected; informational unless allow_dft_gap"
+   },
+   {
+    "param": "band_gap_eV",
+    "value": 1.12,
+    "unit": "eV",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere; DFT gap 0.573 eV -> scissor +0.547 eV"
+   },
+   {
+    "param": "electron_affinity_eV",
+    "value": 4.05,
+    "unit": "eV",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "eps_r",
+    "value": 11.8,
+    "unit": "",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "mu_n_cm2Vs",
+    "value": 1500.0,
+    "unit": "cm^2/(V s)",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "mu_p_cm2Vs",
+    "value": 450.0,
+    "unit": "cm^2/(V s)",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "srh_lifetime_n_s",
+    "value": 1e-06,
+    "unit": "s",
+    "source": "assumed",
+    "ref": "",
+    "note": "placeholder; set from measurement or SHANI"
+   },
+   {
+    "param": "srh_lifetime_p_s",
+    "value": 1e-06,
+    "unit": "s",
+    "source": "assumed",
+    "ref": "",
+    "note": "placeholder; set from measurement or SHANI"
+   },
+   {
+    "param": "tau_momentum_n_s",
+    "value": 2.346576779563485e-13,
+    "unit": "s",
+    "source": "derived",
+    "ref": "mu_n_cm2Vs*m_cond_n/e",
+    "note": "implied by the given mobility and DFT conductivity mass"
+   },
+   {
+    "param": "tau_momentum_p_s",
+    "value": 8.684036419768632e-14,
+    "unit": "s",
+    "source": "derived",
+    "ref": "mu_p_cm2Vs*m_cond_p/e",
+    "note": "implied by the given mobility and DFT conductivity mass"
+   }
+  ],
+  "physics_limits": [
+   "constant low-field mobility (no doping/field dependence, no velocity saturation)",
+   "Boltzmann statistics (invalid for degenerate doping near contacts)",
+   "SRH recombination with mid-gap traps only (no Auger, radiative, or tunnelling)",
+   "no band-gap narrowing, no quantum confinement, no interface/oxide charge",
+   "homojunction only (single semiconductor region)"
+  ],
+  "warnings": [
+   "parameters tagged 'assumed' were used: srh_lifetime_n_s, srh_lifetime_p_s"
+  ],
+  "seconds": 14.0
+ },
+ "mosfet_dft": {
+  "success": true,
+  "device": "nmosfet_2d",
+  "mesh_nodes": 4037,
+  "phi_ms_eV": -0.5629233965725131,
+  "transfer_vd_lin": [
+   {
+    "Vg": -0.2621,
+    "Id_A_per_um": 1.2216323711623111e-14
+   },
+   {
+    "Vg": -0.2121,
+    "Id_A_per_um": 1.2323383968996057e-14
+   },
+   {
+    "Vg": -0.1621,
+    "Id_A_per_um": 5.042666814252022e-14
+   },
+   {
+    "Vg": -0.1121,
+    "Id_A_per_um": 2.0696265714259952e-13
+   },
+   {
+    "Vg": -0.0621,
+    "Id_A_per_um": 7.738377404551215e-13
+   },
+   {
+    "Vg": -0.0121,
+    "Id_A_per_um": 3.099668191997464e-12
+   },
+   {
+    "Vg": 0.0379,
+    "Id_A_per_um": 1.2563010532342157e-11
+   },
+   {
+    "Vg": 0.0879,
+    "Id_A_per_um": 5.1595272556013746e-11
+   },
+   {
+    "Vg": 0.1379,
+    "Id_A_per_um": 2.1456969454750051e-10
+   },
+   {
+    "Vg": 0.1879,
+    "Id_A_per_um": 9.012921452028592e-10
+   },
+   {
+    "Vg": 0.2379,
+    "Id_A_per_um": 3.80169505642926e-09
+   },
+   {
+    "Vg": 0.2879,
+    "Id_A_per_um": 1.58001105686099e-08
+   },
+   {
+    "Vg": 0.3379,
+    "Id_A_per_um": 6.093857949650211e-08
+   },
+   {
+    "Vg": 0.3879,
+    "Id_A_per_um": 1.937180818402689e-07
+   },
+   {
+    "Vg": 0.4379,
+    "Id_A_per_um": 4.6410430063135307e-07
+   },
+   {
+    "Vg": 0.4879,
+    "Id_A_per_um": 8.609565007731782e-07
+   },
+   {
+    "Vg": 0.5379,
+    "Id_A_per_um": 1.3407254252468467e-06
+   },
+   {
+    "Vg": 0.5879,
+    "Id_A_per_um": 1.8699073210127687e-06
+   },
+   {
+    "Vg": 0.6379,
+    "Id_A_per_um": 2.429439240434752e-06
+   },
+   {
+    "Vg": 0.6879,
+    "Id_A_per_um": 3.008768304400524e-06
+   },
+   {
+    "Vg": 0.7379,
+    "Id_A_per_um": 3.6017708825825774e-06
+   },
+   {
+    "Vg": 0.7879,
+    "Id_A_per_um": 4.2046780837661396e-06
+   },
+   {
+    "Vg": 0.8379,
+    "Id_A_per_um": 4.815041603483309e-06
+   },
+   {
+    "Vg": 0.8879,
+    "Id_A_per_um": 5.431195185718942e-06
+   },
+   {
+    "Vg": 0.9379,
+    "Id_A_per_um": 6.051959688846827e-06
+   },
+   {
+    "Vg": 0.9879,
+    "Id_A_per_um": 6.6764727031135915e-06
+   },
+   {
+    "Vg": 1.0379,
+    "Id_A_per_um": 7.304085726428514e-06
+   },
+   {
+    "Vg": 1.0879,
+    "Id_A_per_um": 7.93429929991335e-06
+   },
+   {
+    "Vg": 1.1379,
+    "Id_A_per_um": 8.566721029214862e-06
+   },
+   {
+    "Vg": 1.1879,
+    "Id_A_per_um": 9.201036905049463e-06
+   },
+   {
+    "Vg": 1.2379,
+    "Id_A_per_um": 9.83699206939014e-06
+   },
+   {
+    "Vg": 1.2879,
+    "Id_A_per_um": 1.0474376682133571e-05
+   },
+   {
+    "Vg": 1.3379,
+    "Id_A_per_um": 1.1113016080435945e-05
+   },
+   {
+    "Vg": 1.3879,
+    "Id_A_per_um": 1.1752763223702468e-05
+   },
+   {
+    "Vg": 1.4379,
+    "Id_A_per_um": 1.2393493214810756e-05
+   },
+   {
+    "Vg": 1.4879,
+    "Id_A_per_um": 1.3035099212575836e-05
+   },
+   {
+    "Vg": 1.5379,
+    "Id_A_per_um": 1.367748894000057e-05
+   },
+   {
+    "Vg": 1.5879,
+    "Id_A_per_um": 1.4320582334015278e-05
+   },
+   {
+    "Vg": 1.6379,
+    "Id_A_per_um": 1.4964309346035762e-05
+   },
+   {
+    "Vg": 1.6879,
+    "Id_A_per_um": 1.5608608519699552e-05
+   },
+   {
+    "Vg": 1.7379,
+    "Id_A_per_um": 1.625342562960912e-05
+   },
+   {
+    "Vg": 1.7879,
+    "Id_A_per_um": 1.6898712423402366e-05
+   },
+   {
+    "Vg": 1.8379,
+    "Id_A_per_um": 1.7544426055651107e-05
+   }
+  ],
+  "output": [
+   {
+    "Vg": 1.0,
+    "curve": [
+     {
+      "Vd": 0.1,
+      "Id_A_per_um": 1.286711797742649e-05
+     },
+     {
+      "Vd": 0.2,
+      "Id_A_per_um": 2.263933452015327e-05
+     },
+     {
+      "Vd": 0.3,
+      "Id_A_per_um": 2.9474540156670744e-05
+     },
+     {
+      "Vd": 0.4,
+      "Id_A_per_um": 3.36416188765644e-05
+     },
+     {
+      "Vd": 0.5,
+      "Id_A_per_um": 3.566461586880737e-05
+     },
+     {
+      "Vd": 0.6,
+      "Id_A_per_um": 3.641777591694604e-05
+     },
+     {
+      "Vd": 0.7,
+      "Id_A_per_um": 3.671032563564191e-05
+     },
+     {
+      "Vd": 0.8,
+      "Id_A_per_um": 3.688333757470245e-05
+     },
+     {
+      "Vd": 0.9,
+      "Id_A_per_um": 3.70203096050309e-05
+     },
+     {
+      "Vd": 1.0,
+      "Id_A_per_um": 3.714092438861747e-05
+     },
+     {
+      "Vd": 1.1,
+      "Id_A_per_um": 3.7251377060301804e-05
+     },
+     {
+      "Vd": 1.2,
+      "Id_A_per_um": 3.735453039149413e-05
+     },
+     {
+      "Vd": 1.3,
+      "Id_A_per_um": 3.745191723321604e-05
+     },
+     {
+      "Vd": 1.4,
+      "Id_A_per_um": 3.754440953578145e-05
+     },
+     {
+      "Vd": 1.5,
+      "Id_A_per_um": 3.763259459872933e-05
+     },
+     {
+      "Vd": 1.6,
+      "Id_A_per_um": 3.77169251347471e-05
+     },
+     {
+      "Vd": 1.7,
+      "Id_A_per_um": 3.7797778216441827e-05
+     },
+     {
+      "Vd": 1.8,
+      "Id_A_per_um": 3.787547516516213e-05
+     },
+     {
+      "Vd": 1.9,
+      "Id_A_per_um": 3.7950295858943594e-05
+     },
+     {
+      "Vd": 2.0,
+      "Id_A_per_um": 3.802248914708004e-05
+     }
+    ]
+   },
+   {
+    "Vg": 2.0,
+    "curve": [
+     {
+      "Vd": 0.1,
+      "Id_A_per_um": 3.846768803246682e-05
+     },
+     {
+      "Vd": 0.2,
+      "Id_A_per_um": 7.371112664279758e-05
+     },
+     {
+      "Vd": 0.3,
+      "Id_A_per_um": 0.00010578410609340635
+     },
+     {
+      "Vd": 0.4,
+      "Id_A_per_um": 0.00013473942956928188
+     },
+     {
+      "Vd": 0.5,
+      "Id_A_per_um": 0.00016063085564734186
+     },
+     {
+      "Vd": 0.6,
+      "Id_A_per_um": 0.00018351548079668437
+     },
+     {
+      "Vd": 0.7,
+      "Id_A_per_um": 0.00020345705995273162
+     },
+     {
+      "Vd": 0.8,
+      "Id_A_per_um": 0.00022053083180719024
+     },
+     {
+      "Vd": 0.9,
+      "Id_A_per_um": 0.00023483070756531125
+     },
+     {
+      "Vd": 1.0,
+      "Id_A_per_um": 0.00024647997430587656
+     },
+     {
+      "Vd": 1.1,
+      "Id_A_per_um": 0.0002556465678922846
+     },
+     {
+      "Vd": 1.2,
+      "Id_A_per_um": 0.00026256230461005445
+     },
+     {
+      "Vd": 1.3,
+      "Id_A_per_um": 0.0002675399997216698
+     },
+     {
+      "Vd": 1.4,
+      "Id_A_per_um": 0.0002709724831811665
+     },
+     {
+      "Vd": 1.5,
+      "Id_A_per_um": 0.00027329304517146143
+     },
+     {
+      "Vd": 1.6,
+      "Id_A_per_um": 0.00027490060446182566
+     },
+     {
+      "Vd": 1.7,
+      "Id_A_per_um": 0.0002760944116419989
+     },
+     {
+      "Vd": 1.8,
+      "Id_A_per_um": 0.00027705891502929404
+     },
+     {
+      "Vd": 1.9,
+      "Id_A_per_um": 0.00027789217088393446
+     },
+     {
+      "Vd": 2.0,
+      "Id_A_per_um": 0.0002786436652348085
+     }
+    ]
+   }
+  ],
+  "analytic_check": {
+   "analytic": {
+    "VFB": -0.9798642109741138,
+    "phiF": 0.4169408144016003,
+    "Cox_F_cm2": 3.453133246992e-07,
+    "Qdep_C_cm2": 1.6708511669051551e-07,
+    "Vt": 0.337882663504336,
+    "SS_mV_dec": 76.79672847202929,
+    "Wdmax_cm": 1.042863272031188e-05
+   },
+   "tolerances": {
+    "Vt_V": 0.1,
+    "SS_rel": 0.15
+   },
+   "Vt_sim": 0.45393742473491583,
+   "Vt_chargesheet_extrapolated": 0.4485172794048312,
+   "dVt": 0.005420145330084614,
+   "Vt_classical_2phiF": 0.337882663504336,
+   "SS_sim_mV_dec": 79.98570599391734,
+   "gm_max_S_per_um": 1.2910004260419842e-05,
+   "mu_eff_extracted_cm2Vs": 1495.453935542818,
+   "mu_input_cm2Vs": 1500.0,
+   "chargesheet_transfer": [
+    {
+     "Vg": -0.2621,
+     "Id_A_per_um": 6.569745903729231e-15
+    },
+    {
+     "Vg": -0.2121,
+     "Id_A_per_um": 2.4285669969889848e-14
+    },
+    {
+     "Vg": -0.1621,
+     "Id_A_per_um": 9.171630209840032e-14
+    },
+    {
+     "Vg": -0.1121,
+     "Id_A_per_um": 3.5313327172878714e-13
+    },
+    {
+     "Vg": -0.0621,
+     "Id_A_per_um": 1.3837763215987746e-12
+    },
+    {
+     "Vg": -0.0121,
+     "Id_A_per_um": 5.510311756338461e-12
+    },
+    {
+     "Vg": 0.0379,
+     "Id_A_per_um": 2.226890176235453e-11
+    },
+    {
+     "Vg": 0.0879,
+     "Id_A_per_um": 9.12233183997378e-11
+    },
+    {
+     "Vg": 0.1379,
+     "Id_A_per_um": 3.7827213890293946e-10
+    },
+    {
+     "Vg": 0.1879,
+     "Id_A_per_um": 1.5838704479947787e-09
+    },
+    {
+     "Vg": 0.2379,
+     "Id_A_per_um": 6.646302120076107e-09
+    },
+    {
+     "Vg": 0.2879,
+     "Id_A_per_um": 2.7189617387466438e-08
+    },
+    {
+     "Vg": 0.3379,
+     "Id_A_per_um": 9.95724515749388e-08
+    },
+    {
+     "Vg": 0.3879,
+     "Id_A_per_um": 2.835070225662178e-07
+    },
+    {
+     "Vg": 0.4379,
+     "Id_A_per_um": 5.98187372485555e-07
+    },
+    {
+     "Vg": 0.4879,
+     "Id_A_per_um": 1.0097171155394996e-06
+    },
+    {
+     "Vg": 0.5379,
+     "Id_A_per_um": 1.4819026186842888e-06
+    },
+    {
+     "Vg": 0.5879,
+     "Id_A_per_um": 1.992204715146641e-06
+    },
+    {
+     "Vg": 0.6379,
+     "Id_A_per_um": 2.5277185767453433e-06
+    },
+    {
+     "Vg": 0.6879,
+     "Id_A_per_um": 3.0808319248191876e-06
+    },
+    {
+     "Vg": 0.7379,
+     "Id_A_per_um": 3.646813099810751e-06
+    },
+    {
+     "Vg": 0.7879,
+     "Id_A_per_um": 4.222566724686847e-06
+    },
+    {
+     "Vg": 0.8379,
+     "Id_A_per_um": 4.805975361241028e-06
+    },
+    {
+     "Vg": 0.8879,
+     "Id_A_per_um": 5.395534594150711e-06
+    },
+    {
+     "Vg": 0.9379,
+     "Id_A_per_um": 5.990140784829802e-06
+    },
+    {
+     "Vg": 0.9879,
+     "Id_A_per_um": 6.588962027625289e-06
+    },
+    {
+     "Vg": 1.0379,
+     "Id_A_per_um": 7.191356541600117e-06
+    },
+    {
+     "Vg": 1.0879,
+     "Id_A_per_um": 7.796819244474495e-06
+    },
+    {
+     "Vg": 1.1379,
+     "Id_A_per_um": 8.404945698765855e-06
+    },
+    {
+     "Vg": 1.1879,
+     "Id_A_per_um": 9.015407123116387e-06
+    },
+    {
+     "Vg": 1.2379,
+     "Id_A_per_um": 9.627932659549202e-06
+    },
+    {
+     "Vg": 1.2879,
+     "Id_A_per_um": 1.0242296523530098e-05
+    },
+    {
+     "Vg": 1.3379,
+     "Id_A_per_um": 1.0858308516736889e-05
+    },
+    {
+     "Vg": 1.3879,
+     "Id_A_per_um": 1.1475806904213356e-05
+    },
+    {
+     "Vg": 1.4379,
+     "Id_A_per_um": 1.2094652985327956e-05
+    },
+    {
+     "Vg": 1.4879,
+     "Id_A_per_um": 1.2714726898836849e-05
+    },
+    {
+     "Vg": 1.5379,
+     "Id_A_per_um": 1.3335924341027675e-05
+    },
+    {
+     "Vg": 1.5879,
+     "Id_A_per_um": 1.3958153968955979e-05
+    },
+    {
+     "Vg": 1.6379,
+     "Id_A_per_um": 1.4581335324340879e-05
+    },
+    {
+     "Vg": 1.6879,
+     "Id_A_per_um": 1.520539715783696e-05
+    },
+    {
+     "Vg": 1.7379,
+     "Id_A_per_um": 1.583027606454297e-05
+    },
+    {
+     "Vg": 1.7879,
+     "Id_A_per_um": 1.645591536388765e-05
+    },
+    {
+     "Vg": 1.8379,
+     "Id_A_per_um": 1.708226417318428e-05
+    }
+   ],
+   "pass": true,
+   "summary": "Vt sim 0.454 V vs charge-sheet 0.449 V (dVt +0.005; classical 2phiF 0.338); SS sim 80.0 vs ideal 76.8 mV/dec; mu_eff from gm 1495 vs input 1500 cm2/Vs"
+  },
+  "solver_log_tail": "or: 1.42103e+16\n      Equation: \"HoleContinuityEquation\"\tRelError: 6.46991e-01\tAbsError: 2.47910e+12\n      Equation: \"PotentialEquation\"\tRelError: 1.59308e-02\tAbsError: 2.57454e-02\n    Region: \"oxide\"\tRelError: 1.01910e-02\tAbsError: 2.57454e-02\n      Equation: \"PotentialEquation\"\tRelError: 1.01910e-02\tAbsError: 2.57454e-02\nIteration: 3\n  Device: \"nmos\"\tRelError: 1.01912e-01\tAbsError: 3.24584e+15\n    Region: \"bulk\"\tRelError: 9.83951e-02\tAbsError: 3.24584e+15\n      Equation: \"ElectronContinuityEquation\"\tRelError: 4.62272e-02\tAbsError: 3.24260e+15\n      Equation: \"HoleContinuityEquation\"\tRelError: 3.60912e-02\tAbsError: 3.24051e+12\n      Equation: \"PotentialEquation\"\tRelError: 1.60766e-02\tAbsError: 9.16555e-03\n    Region: \"oxide\"\tRelError: 3.51668e-03\tAbsError: 9.06279e-03\n      Equation: \"PotentialEquation\"\tRelError: 3.51668e-03\tAbsError: 9.06279e-03\nIteration: 4\n  Device: \"nmos\"\tRelError: 1.42341e-01\tAbsError: 3.09000e+15\n    Region: \"bulk\"\tRelError: 1.42294e-01\tAbsError: 3.09000e+15\n      Equation: \"ElectronContinuityEquation\"\tRelError: 6.61642e-02\tAbsError: 3.08567e+15\n      Equation: \"HoleContinuityEquation\"\tRelError: 4.90412e-02\tAbsError: 4.32154e+12\n      Equation: \"PotentialEquation\"\tRelError: 2.70885e-02\tAbsError: 1.53872e-04\n    Region: \"oxide\"\tRelError: 4.72514e-05\tAbsError: 1.17308e-04\n      Equation: \"PotentialEquation\"\tRelError: 4.72514e-05\tAbsError: 1.17308e-04\nIteration: 5\n  Device: \"nmos\"\tRelError: 2.46916e-03\tAbsError: 1.73495e+12\n    Region: \"bulk\"\tRelError: 2.46915e-03\tAbsError: 1.73495e+12\n      Equation: \"ElectronContinuityEquation\"\tRelError: 5.01335e-05\tAbsError: 1.73244e+12\n      Equation: \"HoleContinuityEquation\"\tRelError: 2.40722e-03\tAbsError: 2.51206e+09\n      Equation: \"PotentialEquation\"\tRelError: 1.17983e-05\tAbsError: 1.11177e-07\n    Region: \"oxide\"\tRelError: 2.66509e-09\tAbsError: 6.37192e-09\n      Equation: \"PotentialEquation\"\tRelError: 2.66509e-09\tAbsError: 6.37192e-09\nIteration: 6\n  Device: \"nmos\"\tRelError: 1.06660e-09\tAbsError: 1.31803e+06\n    Region: \"bulk\"\tRelError: 1.06660e-09\tAbsError: 1.31803e+06\n      Equation: \"ElectronContinuityEquation\"\tRelError: 1.33119e-10\tAbsError: 1.31606e+06\n      Equation: \"HoleContinuityEquation\"\tRelError: 9.25555e-10\tAbsError: 1.97200e+03\n      Equation: \"PotentialEquation\"\tRelError: 7.92593e-12\tAbsError: 9.03073e-14\n    Region: \"oxide\"\tRelError: 9.29627e-16\tAbsError: 1.99655e-15\n      Equation: \"PotentialEquation\"\tRelError: 9.29627e-16\tAbsError: 1.99655e-15\nIteration: 7\n  Device: \"nmos\"\tRelError: 8.83259e-11\tAbsError: 1.43961e+04\n    Region: \"bulk\"\tRelError: 8.83258e-11\tAbsError: 1.43961e+04\n      Equation: \"ElectronContinuityEquation\"\tRelError: 8.43623e-11\tAbsError: 1.43786e+04\n      Equation: \"HoleContinuityEquation\"\tRelError: 3.90630e-12\tAbsError: 1.75155e+01\n      Equation: \"PotentialEquation\"\tRelError: 5.71740e-14\tAbsError: 2.97983e-16\n    Region: \"oxide\"\tRelError: 1.50650e-16\tAbsError: 2.58723e-16\n      Equation: \"PotentialEquation\"\tRelError: 1.50650e-16\tAbsError: 2.58723e-16\n",
+  "inputs": {
+   "NA_body": 1e+17,
+   "N_sd": 1e+20,
+   "L_gate_cm": 0.0002,
+   "tox_cm": 1e-06,
+   "eps_ox": 3.9,
+   "gate_workfunction_eV": 4.05,
+   "vd_lin": 0.05,
+   "vg_sweep": [
+    -0.2621,
+    -0.2121,
+    -0.1621,
+    -0.1121,
+    -0.0621,
+    -0.0121,
+    0.0379,
+    0.0879,
+    0.1379,
+    0.1879,
+    0.2379,
+    0.2879,
+    0.3379,
+    0.3879,
+    0.4379,
+    0.4879,
+    0.5379,
+    0.5879,
+    0.6379,
+    0.6879,
+    0.7379,
+    0.7879,
+    0.8379,
+    0.8879,
+    0.9379,
+    0.9879,
+    1.0379,
+    1.0879,
+    1.1379,
+    1.1879,
+    1.2379,
+    1.2879,
+    1.3379,
+    1.3879,
+    1.4379,
+    1.4879,
+    1.5379,
+    1.5879,
+    1.6379,
+    1.6879,
+    1.7379,
+    1.7879,
+    1.8379
+   ],
+   "vd_sweep": [
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0,
+    1.1,
+    1.2,
+    1.3,
+    1.4,
+    1.5,
+    1.6,
+    1.7,
+    1.8,
+    1.9,
+    2.0
+   ],
+   "vg_output": [
+    1.0,
+    2.0
+   ],
+   "sd_junction_depth_cm": 1e-05
+  },
+  "material": "Si (DFT band edges)",
+  "provenance": [
+   {
+    "param": "Nc_cm3",
+    "value": 2.8339973743574974e+19,
+    "unit": "cm^-3",
+    "source": "dft+boltztrap2",
+    "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+    "note": "BoltzTraP2 interp x8, 145 irreducible k"
+   },
+   {
+    "param": "Nv_cm3",
+    "value": 2.2603601479932932e+19,
+    "unit": "cm^-3",
+    "source": "dft+boltztrap2",
+    "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+    "note": "BoltzTraP2 interp x8, 145 irreducible k"
+   },
+   {
+    "param": "m_cond_n",
+    "value": 0.27514707978063707,
+    "unit": "m_e",
+    "source": "dft+boltztrap2",
+    "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+    "note": "BoltzTraP2 interp x8, 145 irreducible k"
+   },
+   {
+    "param": "m_cond_p",
+    "value": 0.3394146006525182,
+    "unit": "m_e",
+    "source": "dft+boltztrap2",
+    "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+    "note": "BoltzTraP2 interp x8, 145 irreducible k"
+   },
+   {
+    "param": "band_gap_dft_eV",
+    "value": 0.5733628130419078,
+    "unit": "eV",
+    "source": "dft",
+    "ref": "vishwakarma job 1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+    "note": "uncorrected; informational unless allow_dft_gap"
+   },
+   {
+    "param": "band_gap_eV",
+    "value": 1.12,
+    "unit": "eV",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere; DFT gap 0.573 eV -> scissor +0.547 eV"
+   },
+   {
+    "param": "electron_affinity_eV",
+    "value": 4.05,
+    "unit": "eV",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "eps_r",
+    "value": 11.8,
+    "unit": "",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "mu_n_cm2Vs",
+    "value": 1500.0,
+    "unit": "cm^2/(V s)",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "mu_p_cm2Vs",
+    "value": 450.0,
+    "unit": "cm^2/(V s)",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "srh_lifetime_n_s",
+    "value": 1e-06,
+    "unit": "s",
+    "source": "assumed",
+    "ref": "",
+    "note": "placeholder; set from measurement or SHANI"
+   },
+   {
+    "param": "srh_lifetime_p_s",
+    "value": 1e-06,
+    "unit": "s",
+    "source": "assumed",
+    "ref": "",
+    "note": "placeholder; set from measurement or SHANI"
+   },
+   {
+    "param": "tau_momentum_n_s",
+    "value": 2.346576779563485e-13,
+    "unit": "s",
+    "source": "derived",
+    "ref": "mu_n_cm2Vs*m_cond_n/e",
+    "note": "implied by the given mobility and DFT conductivity mass"
+   },
+   {
+    "param": "tau_momentum_p_s",
+    "value": 8.684036419768632e-14,
+    "unit": "s",
+    "source": "derived",
+    "ref": "mu_p_cm2Vs*m_cond_p/e",
+    "note": "implied by the given mobility and DFT conductivity mass"
+   }
+  ],
+  "physics_limits": [
+   "constant low-field mobility (no doping/field dependence, no velocity saturation)",
+   "Boltzmann statistics (invalid for degenerate doping near contacts)",
+   "SRH recombination with mid-gap traps only (no Auger, radiative, or tunnelling)",
+   "no band-gap narrowing, no quantum confinement, no interface/oxide charge",
+   "homojunction only (single semiconductor region)"
+  ],
+  "warnings": [
+   "parameters tagged 'assumed' were used: srh_lifetime_n_s, srh_lifetime_p_s"
+  ],
+  "seconds": 223.5
+ },
+ "diode_literature": {
+  "success": true,
+  "device": "pn_diode_1d",
+  "mesh_nodes": 3461,
+  "iv": [
+   {
+    "V": -2.0,
+    "J_A_cm2": -1.8698473059296295e-08
+   },
+   {
+    "V": -1.0,
+    "J_A_cm2": -1.1558476676185486e-08
+   },
+   {
+    "V": -0.5,
+    "J_A_cm2": -6.939891571911566e-09
+   },
+   {
+    "V": 0.05,
+    "J_A_cm2": 2.5854896996620213e-09
+   },
+   {
+    "V": 0.1,
+    "J_A_cm2": 9.233505092528994e-09
+   },
+   {
+    "V": 0.15,
+    "J_A_cm2": 2.783735830272843e-08
+   },
+   {
+    "V": 0.2,
+    "J_A_cm2": 8.281604516631133e-08
+   },
+   {
+    "V": 0.25,
+    "J_A_cm2": 2.5988309394942363e-07
+   },
+   {
+    "V": 0.3,
+    "J_A_cm2": 9.196964304823003e-07
+   },
+   {
+    "V": 0.35,
+    "J_A_cm2": 3.902010800007566e-06
+   },
+   {
+    "V": 0.4,
+    "J_A_cm2": 2.0063526240310264e-05
+   },
+   {
+    "V": 0.425,
+    "J_A_cm2": 4.8210012232991015e-05
+   },
+   {
+    "V": 0.45,
+    "J_A_cm2": 0.00011907781853299185
+   },
+   {
+    "V": 0.475,
+    "J_A_cm2": 0.0003000428939084443
+   },
+   {
+    "V": 0.5,
+    "J_A_cm2": 0.0007665140918959369
+   },
+   {
+    "V": 0.525,
+    "J_A_cm2": 0.001975881057437699
+   },
+   {
+    "V": 0.55,
+    "J_A_cm2": 0.005118839749438751
+   },
+   {
+    "V": 0.575,
+    "J_A_cm2": 0.013270032140901545
+   },
+   {
+    "V": 0.6,
+    "J_A_cm2": 0.03418635568204364
+   },
+   {
+    "V": 0.625,
+    "J_A_cm2": 0.08631000325119673
+   },
+   {
+    "V": 0.65,
+    "J_A_cm2": 0.2078273095258229
+   },
+   {
+    "V": 0.675,
+    "J_A_cm2": 0.45837604156154504
+   },
+   {
+    "V": 0.7,
+    "J_A_cm2": 0.8946781919348399
+   }
+  ],
+  "analytic_check": {
+   "J0_diffusion_A_cm2": 2.8801850429700877e-12,
+   "V_bi": 0.7947361985172019,
+   "R_series_ohm_cm2": 0.016630825560773946,
+   "rows": [
+    {
+     "V": 0.05,
+     "V_junction": 0.049999999957001176,
+     "J_sim": 2.5854896996620213e-09,
+     "J_diffusion": 1.7044130939593902e-11,
+     "J_srh_bound": 2.849653523737139e-08,
+     "ratio": 151.693841641164,
+     "in_window": false
+    },
+    {
+     "V": 0.1,
+     "V_junction": 0.09999999984643919,
+     "J_sim": 9.233505092528994e-09,
+     "J_diffusion": 1.3495066969012586e-10,
+     "J_srh_bound": 9.991393981282795e-08,
+     "ratio": 68.42133583872534,
+     "in_window": false
+    },
+    {
+     "V": 0.15,
+     "V_junction": 0.14999999953704174,
+     "J_sim": 2.783735830272843e-08,
+     "J_diffusion": 9.50595175785253e-10,
+     "J_srh_bound": 2.796706567893568e-07,
+     "ratio": 29.28413588858472,
+     "in_window": false
+    },
+    {
+     "V": 0.2,
+     "V_junction": 0.19999999862270082,
+     "J_sim": 8.281604516631133e-08,
+     "J_diffusion": 6.592995928352481e-09,
+     "J_srh_bound": 7.319450550880574e-07,
+     "ratio": 12.561215882171213,
+     "in_window": false
+    },
+    {
+     "V": 0.25,
+     "V_junction": 0.2499999956779296,
+     "J_sim": 2.5988309394942363e-07,
+     "J_diffusion": 4.5625544074728074e-08,
+     "J_srh_bound": 1.8668012024286135e-06,
+     "ratio": 5.695999888215526,
+     "in_window": false
+    },
+    {
+     "V": 0.3,
+     "V_junction": 0.2999999847046891,
+     "J_sim": 9.196964304823003e-07,
+     "J_diffusion": 3.1564168590484587e-07,
+     "J_srh_bound": 4.7024435971907244e-06,
+     "ratio": 2.913735642508114,
+     "in_window": false
+    },
+    {
+     "V": 0.35,
+     "V_junction": 0.34999993510633903,
+     "J_sim": 3.902010800007566e-06,
+     "J_diffusion": 2.1835339141784833e-06,
+     "J_srh_bound": 1.1748540312497206e-05,
+     "ratio": 1.7870163475228777,
+     "in_window": false
+    },
+    {
+     "V": 0.4,
+     "V_junction": 0.39999966632699496,
+     "J_sim": 2.0063526240310264e-05,
+     "J_diffusion": 1.5104937997539092e-05,
+     "J_srh_bound": 2.9132311665680126e-05,
+     "ratio": 1.3282759746235986,
+     "in_window": false
+    },
+    {
+     "V": 0.425,
+     "V_junction": 0.4249991982276963,
+     "J_sim": 4.8210012232991015e-05,
+     "J_diffusion": 3.9727629296546345e-05,
+     "J_srh_bound": 4.57327483258385e-05,
+     "ratio": 1.213513443581746,
+     "in_window": false
+    },
+    {
+     "V": 0.45,
+     "V_junction": 0.44999801963757186,
+     "J_sim": 0.00011907781853299185,
+     "J_diffusion": 0.00010448510538320193,
+     "J_srh_bound": 7.162278999157713e-05,
+     "ratio": 1.1396630945269255,
+     "in_window": false
+    },
+    {
+     "V": 0.475,
+     "V_junction": 0.47499501003897066,
+     "J_sim": 0.0003000428939084443,
+     "J_diffusion": 0.0002747801452043177,
+     "J_srh_bound": 0.00011186621896093263,
+     "ratio": 1.0919380426316538,
+     "in_window": false
+    },
+    {
+     "V": 0.5,
+     "V_junction": 0.4999872522378478,
+     "J_sim": 0.0007665140918959369,
+     "J_diffusion": 0.0007224978206335596,
+     "J_srh_bound": 0.00017416802883595797,
+     "ratio": 1.0609223585252885,
+     "in_window": false
+    },
+    {
+     "V": 0.525,
+     "V_junction": 0.524967139466805,
+     "J_sim": 0.001975881057437699,
+     "J_diffusion": 0.0018988041752417276,
+     "J_srh_bound": 0.00027012868183150875,
+     "ratio": 1.04059232816157,
+     "in_window": false
+    },
+    {
+     "V": 0.55,
+     "V_junction": 0.5499148694690535,
+     "J_sim": 0.005118839749438751,
+     "J_diffusion": 0.004984063837825977,
+     "J_srh_bound": 0.00041692452238208463,
+     "ratio": 1.0270413694523548,
+     "in_window": false
+    },
+    {
+     "V": 0.575,
+     "V_junction": 0.5747793084102788,
+     "J_sim": 0.013270032140901545,
+     "J_diffusion": 0.013040306106327892,
+     "J_srh_bound": 0.0006392307823744514,
+     "ratio": 1.0176166136515903,
+     "in_window": true
+    },
+    {
+     "V": 0.6,
+     "V_junction": 0.5994314526820933,
+     "J_sim": 0.03418635568204364,
+     "J_diffusion": 0.03383962816352545,
+     "J_srh_bound": 0.0009703237003954077,
+     "ratio": 1.0102461976485875,
+     "in_window": true
+    },
+    {
+     "V": 0.625,
+     "V_junction": 0.6235645933917795,
+     "J_sim": 0.08631000325119673,
+     "J_diffusion": 0.08606855314604878,
+     "J_srh_bound": 0.001448728677573086,
+     "ratio": 1.0028053231560456,
+     "in_window": true
+    },
+    {
+     "V": 0.65,
+     "V_junction": 0.6465436602685111,
+     "J_sim": 0.2078273095258229,
+     "J_diffusion": 0.2093513834940209,
+     "J_srh_bound": 0.002102330213969955,
+     "ratio": 0.9927200196016782,
+     "in_window": true
+    },
+    {
+     "V": 0.675,
+     "V_junction": 0.667376828011552,
+     "J_sim": 0.45837604156154504,
+     "J_diffusion": 0.4686597423077833,
+     "J_srh_bound": 0.002916047922158901,
+     "ratio": 0.9780572133300824,
+     "in_window": true
+    },
+    {
+     "V": 0.7,
+     "V_junction": 0.685120763056903,
+     "J_sim": 0.8946781919348399,
+     "J_diffusion": 0.9309849027799034,
+     "J_srh_bound": 0.0038129215430290366,
+     "ratio": 0.9610018264134549,
+     "in_window": false
+    }
+   ],
+   "tolerances": {
+    "ratio": [
+     0.8,
+     1.25
+    ],
+    "ideality": [
+     0.97,
+     1.08
+    ]
+   },
+   "reverse_info": {
+    "V": -2.0,
+    "J_sim": -1.8698473059296295e-08,
+    "J_generation_bound": -3.386351688472323e-08,
+    "note": "informational; qniW/2tau is an upper estimate"
+   },
+   "window_Vj": [
+    0.5747793084102788,
+    0.667376828011552
+   ],
+   "n_window_points": 5,
+   "ratio_range": [
+    0.9780572133300824,
+    1.0176166136515903
+   ],
+   "ideality_factor": 1.0111937660571075,
+   "pass": true,
+   "summary": "J_sim/J_diffusion 0.978-1.018 over Vj 0.575-0.667 V (5 pts), ideality 1.011"
+  },
+  "solver_log_tail": "\n      Equation: \"ElectronContinuityEquation\"\tRelError: 1.00000e+00\tAbsError: 3.73210e+13\n      Equation: \"HoleContinuityEquation\"\tRelError: 9.99000e+02\tAbsError: 1.01203e+13\n      Equation: \"PotentialEquation\"\tRelError: 1.76841e+01\tAbsError: 4.98586e-02\nIteration: 4\n  Device: \"diode\"\tRelError: 3.29120e+01\tAbsError: 7.21490e+11\n    Region: \"semi\"\tRelError: 3.29120e+01\tAbsError: 7.21490e+11\n      Equation: \"ElectronContinuityEquation\"\tRelError: 3.17312e+01\tAbsError: 3.65251e+10\n      Equation: \"HoleContinuityEquation\"\tRelError: 1.14568e+00\tAbsError: 6.84964e+11\n      Equation: \"PotentialEquation\"\tRelError: 3.51090e-02\tAbsError: 4.13214e-02\nIteration: 5\n  Device: \"diode\"\tRelError: 1.22752e+00\tAbsError: 5.13067e+10\n    Region: \"semi\"\tRelError: 1.22752e+00\tAbsError: 5.13067e+10\n      Equation: \"ElectronContinuityEquation\"\tRelError: 9.02224e-01\tAbsError: 8.30179e+08\n      Equation: \"HoleContinuityEquation\"\tRelError: 3.07798e-01\tAbsError: 5.04765e+10\n      Equation: \"PotentialEquation\"\tRelError: 1.75002e-02\tAbsError: 3.11957e-02\nIteration: 6\n  Device: \"diode\"\tRelError: 6.15701e-02\tAbsError: 6.02030e+10\n    Region: \"semi\"\tRelError: 6.15701e-02\tAbsError: 6.02030e+10\n      Equation: \"ElectronContinuityEquation\"\tRelError: 2.88444e-03\tAbsError: 5.48627e+08\n      Equation: \"HoleContinuityEquation\"\tRelError: 4.78208e-02\tAbsError: 5.96544e+10\n      Equation: \"PotentialEquation\"\tRelError: 1.08649e-02\tAbsError: 2.58285e-02\nIteration: 7\n  Device: \"diode\"\tRelError: 7.24509e-03\tAbsError: 1.60658e+13\n    Region: \"semi\"\tRelError: 7.24509e-03\tAbsError: 1.60658e+13\n      Equation: \"ElectronContinuityEquation\"\tRelError: 7.14671e-04\tAbsError: 4.02500e+10\n      Equation: \"HoleContinuityEquation\"\tRelError: 2.53785e-03\tAbsError: 1.60255e+13\n      Equation: \"PotentialEquation\"\tRelError: 3.99256e-03\tAbsError: 9.69048e-03\nIteration: 8\n  Device: \"diode\"\tRelError: 4.43253e-03\tAbsError: 1.61145e+13\n    Region: \"semi\"\tRelError: 4.43253e-03\tAbsError: 1.61145e+13\n      Equation: \"ElectronContinuityEquation\"\tRelError: 8.44596e-04\tAbsError: 4.07310e+10\n      Equation: \"HoleContinuityEquation\"\tRelError: 1.10735e-03\tAbsError: 1.60738e+13\n      Equation: \"PotentialEquation\"\tRelError: 2.48058e-03\tAbsError: 4.74482e-06\nIteration: 9\n  Device: \"diode\"\tRelError: 8.66620e-07\tAbsError: 1.61117e+08\n    Region: \"semi\"\tRelError: 8.66620e-07\tAbsError: 1.61117e+08\n      Equation: \"ElectronContinuityEquation\"\tRelError: 8.36588e-07\tAbsError: 1.64974e+05\n      Equation: \"HoleContinuityEquation\"\tRelError: 2.77608e-08\tAbsError: 1.60952e+08\n      Equation: \"PotentialEquation\"\tRelError: 2.27134e-09\tAbsError: 2.97064e-11\nIteration: 10\n  Device: \"diode\"\tRelError: 2.76016e-14\tAbsError: 3.27276e+01\n    Region: \"semi\"\tRelError: 2.76016e-14\tAbsError: 3.27276e+01\n      Equation: \"ElectronContinuityEquation\"\tRelError: 1.98205e-15\tAbsError: 3.29374e+00\n      Equation: \"HoleContinuityEquation\"\tRelError: 1.24961e-15\tAbsError: 2.94339e+01\n      Equation: \"PotentialEquation\"\tRelError: 2.43700e-14\tAbsError: 2.33297e-16\n",
+  "inputs": {
+   "NA": 1e+17,
+   "ND": 1e+16,
+   "length_p_cm": 0.03,
+   "length_n_cm": 0.03,
+   "v_forward": [
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25,
+    0.3,
+    0.35,
+    0.4,
+    0.425,
+    0.45,
+    0.475,
+    0.5,
+    0.525,
+    0.55,
+    0.575,
+    0.6,
+    0.625,
+    0.65,
+    0.675,
+    0.7
+   ],
+   "v_reverse": [
+    -0.5,
+    -1.0,
+    -2.0
+   ]
+  },
+  "material": "Si (literature table)",
+  "provenance": [
+   {
+    "param": "band_gap_eV",
+    "value": 1.12,
+    "unit": "eV",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "electron_affinity_eV",
+    "value": 4.05,
+    "unit": "eV",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "eps_r",
+    "value": 11.8,
+    "unit": "",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "mu_n_cm2Vs",
+    "value": 1500.0,
+    "unit": "cm^2/(V s)",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "mu_p_cm2Vs",
+    "value": 450.0,
+    "unit": "cm^2/(V s)",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "srh_lifetime_n_s",
+    "value": 1e-06,
+    "unit": "s",
+    "source": "assumed",
+    "ref": "",
+    "note": "placeholder; set from measurement or SHANI"
+   },
+   {
+    "param": "srh_lifetime_p_s",
+    "value": 1e-06,
+    "unit": "s",
+    "source": "assumed",
+    "ref": "",
+    "note": "placeholder; set from measurement or SHANI"
+   },
+   {
+    "param": "Nc_cm3",
+    "value": 2.8e+19,
+    "unit": "cm^-3",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "Nv_cm3",
+    "value": 1.04e+19,
+    "unit": "cm^-3",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   }
+  ],
+  "physics_limits": [
+   "constant low-field mobility (no doping/field dependence, no velocity saturation)",
+   "Boltzmann statistics (invalid for degenerate doping near contacts)",
+   "SRH recombination with mid-gap traps only (no Auger, radiative, or tunnelling)",
+   "no band-gap narrowing, no quantum confinement, no interface/oxide charge",
+   "homojunction only (single semiconductor region)"
+  ],
+  "warnings": [
+   "parameters tagged 'assumed' were used: srh_lifetime_n_s, srh_lifetime_p_s"
+  ],
+  "seconds": 11.9
+ },
+ "mosfet_literature": {
+  "success": true,
+  "device": "nmosfet_2d",
+  "mesh_nodes": 4037,
+  "phi_ms_eV": -0.5728018935425068,
+  "transfer_vd_lin": [
+   {
+    "Vg": -0.2559,
+    "Id_A_per_um": 1.2211692087831215e-14
+   },
+   {
+    "Vg": -0.2059,
+    "Id_A_per_um": 1.2309830651891653e-14
+   },
+   {
+    "Vg": -0.1559,
+    "Id_A_per_um": 5.038652012147116e-14
+   },
+   {
+    "Vg": -0.1059,
+    "Id_A_per_um": 1.7444348723822975e-13
+   },
+   {
+    "Vg": -0.0559,
+    "Id_A_per_um": 7.198298319983961e-13
+   },
+   {
+    "Vg": -0.0059,
+    "Id_A_per_um": 2.941231323545266e-12
+   },
+   {
+    "Vg": 0.0441,
+    "Id_A_per_um": 1.2000153431111541e-11
+   },
+   {
+    "Vg": 0.0941,
+    "Id_A_per_um": 4.965327382594799e-11
+   },
+   {
+    "Vg": 0.1441,
+    "Id_A_per_um": 2.0778623617617485e-10
+   },
+   {
+    "Vg": 0.1941,
+    "Id_A_per_um": 8.778844975156024e-10
+   },
+   {
+    "Vg": 0.2441,
+    "Id_A_per_um": 3.72377262027771e-09
+   },
+   {
+    "Vg": 0.2941,
+    "Id_A_per_um": 1.5561552397008793e-08
+   },
+   {
+    "Vg": 0.3441,
+    "Id_A_per_um": 6.034812533465614e-08
+   },
+   {
+    "Vg": 0.3941,
+    "Id_A_per_um": 1.927685539809408e-07
+   },
+   {
+    "Vg": 0.4441,
+    "Id_A_per_um": 4.6326698983698605e-07
+   },
+   {
+    "Vg": 0.4941,
+    "Id_A_per_um": 8.606975565130484e-07
+   },
+   {
+    "Vg": 0.5441,
+    "Id_A_per_um": 1.3411900360973061e-06
+   },
+   {
+    "Vg": 0.5941,
+    "Id_A_per_um": 1.8710683984795626e-06
+   },
+   {
+    "Vg": 0.6441,
+    "Id_A_per_um": 2.4312235227455763e-06
+   },
+   {
+    "Vg": 0.6941,
+    "Id_A_per_um": 3.0111000396775125e-06
+   },
+   {
+    "Vg": 0.7441,
+    "Id_A_per_um": 3.6045828675779306e-06
+   },
+   {
+    "Vg": 0.7941,
+    "Id_A_per_um": 4.207913393631953e-06
+   },
+   {
+    "Vg": 0.8441,
+    "Id_A_per_um": 4.818652288484761e-06
+   },
+   {
+    "Vg": 0.8941,
+    "Id_A_per_um": 5.435140910949451e-06
+   },
+   {
+    "Vg": 0.9441,
+    "Id_A_per_um": 6.056206254661944e-06
+   },
+   {
+    "Vg": 0.9941,
+    "Id_A_per_um": 6.680990928668837e-06
+   },
+   {
+    "Vg": 1.0441,
+    "Id_A_per_um": 7.308850489407104e-06
+   },
+   {
+    "Vg": 1.0941,
+    "Id_A_per_um": 7.93928890104495e-06
+   },
+   {
+    "Vg": 1.1441,
+    "Id_A_per_um": 8.571916392886213e-06
+   },
+   {
+    "Vg": 1.1941,
+    "Id_A_per_um": 9.206421454954072e-06
+   },
+   {
+    "Vg": 1.2441,
+    "Id_A_per_um": 9.842551031410662e-06
+   },
+   {
+    "Vg": 1.2941,
+    "Id_A_per_um": 1.0480097063900298e-05
+   },
+   {
+    "Vg": 1.3441,
+    "Id_A_per_um": 1.1118886205073508e-05
+   },
+   {
+    "Vg": 1.3941,
+    "Id_A_per_um": 1.1758772658287203e-05
+   },
+   {
+    "Vg": 1.4441,
+    "Id_A_per_um": 1.2399632599118973e-05
+   },
+   {
+    "Vg": 1.4941,
+    "Id_A_per_um": 1.3041360044017833e-05
+   },
+   {
+    "Vg": 1.5441,
+    "Id_A_per_um": 1.3683863566607796e-05
+   },
+   {
+    "Vg": 1.5941,
+    "Id_A_per_um": 1.4327063758907447e-05
+   },
+   {
+    "Vg": 1.6441,
+    "Id_A_per_um": 1.4970891223021295e-05
+   },
+   {
+    "Vg": 1.6941,
+    "Id_A_per_um": 1.5615285090254554e-05
+   },
+   {
+    "Vg": 1.7441,
+    "Id_A_per_um": 1.6260191469936027e-05
+   },
+   {
+    "Vg": 1.7941,
+    "Id_A_per_um": 1.6905562663193193e-05
+   },
+   {
+    "Vg": 1.8441,
+    "Id_A_per_um": 1.7551356226748032e-05
+   }
+  ],
+  "output": [
+   {
+    "Vg": 1.0,
+    "curve": [
+     {
+      "Vd": 0.1,
+      "Id_A_per_um": 1.2722921127890239e-05
+     },
+     {
+      "Vd": 0.2,
+      "Id_A_per_um": 2.235957013453897e-05
+     },
+     {
+      "Vd": 0.3,
+      "Id_A_per_um": 2.9069411214714382e-05
+     },
+     {
+      "Vd": 0.4,
+      "Id_A_per_um": 3.312703176052115e-05
+     },
+     {
+      "Vd": 0.5,
+      "Id_A_per_um": 3.507009665669333e-05
+     },
+     {
+      "Vd": 0.6,
+      "Id_A_per_um": 3.578397519018672e-05
+     },
+     {
+      "Vd": 0.7,
+      "Id_A_per_um": 3.606294571024402e-05
+     },
+     {
+      "Vd": 0.8,
+      "Id_A_per_um": 3.623023850319222e-05
+     },
+     {
+      "Vd": 0.9,
+      "Id_A_per_um": 3.63635420112521e-05
+     },
+     {
+      "Vd": 1.0,
+      "Id_A_per_um": 3.648122382077012e-05
+     },
+     {
+      "Vd": 1.1,
+      "Id_A_per_um": 3.6589127598941854e-05
+     },
+     {
+      "Vd": 1.2,
+      "Id_A_per_um": 3.668998058079359e-05
+     },
+     {
+      "Vd": 1.3,
+      "Id_A_per_um": 3.6785247939613916e-05
+     },
+     {
+      "Vd": 1.4,
+      "Id_A_per_um": 3.68757654513506e-05
+     },
+     {
+      "Vd": 1.5,
+      "Id_A_per_um": 3.696209850824002e-05
+     },
+     {
+      "Vd": 1.6,
+      "Id_A_per_um": 3.704468526773067e-05
+     },
+     {
+      "Vd": 1.7,
+      "Id_A_per_um": 3.7123890899436915e-05
+     },
+     {
+      "Vd": 1.8,
+      "Id_A_per_um": 3.720002791956641e-05
+     },
+     {
+      "Vd": 1.9,
+      "Id_A_per_um": 3.727336811994094e-05
+     },
+     {
+      "Vd": 2.0,
+      "Id_A_per_um": 3.7344152082949966e-05
+     }
+    ]
+   },
+   {
+    "Vg": 2.0,
+    "curve": [
+     {
+      "Vd": 0.1,
+      "Id_A_per_um": 3.8323454984710246e-05
+     },
+     {
+      "Vd": 0.2,
+      "Id_A_per_um": 7.34297459510067e-05
+     },
+     {
+      "Vd": 0.3,
+      "Id_A_per_um": 0.00010537174847791558
+     },
+     {
+      "Vd": 0.4,
+      "Id_A_per_um": 0.00013420159632476376
+     },
+     {
+      "Vd": 0.5,
+      "Id_A_per_um": 0.00015997256738074707
+     },
+     {
+      "Vd": 0.6,
+      "Id_A_per_um": 0.00018274145897927946
+     },
+     {
+      "Vd": 0.7,
+      "Id_A_per_um": 0.00020257192231004943
+     },
+     {
+      "Vd": 0.8,
+      "Id_A_per_um": 0.0002195393274187358
+     },
+     {
+      "Vd": 0.9,
+      "Id_A_per_um": 0.00023373802721990153
+     },
+     {
+      "Vd": 1.0,
+      "Id_A_per_um": 0.00024529218164038414
+     },
+     {
+      "Vd": 1.1,
+      "Id_A_per_um": 0.00025437117961625035
+     },
+     {
+      "Vd": 1.2,
+      "Id_A_per_um": 0.0002612089546322438
+     },
+     {
+      "Vd": 1.3,
+      "Id_A_per_um": 0.00026612086701134705
+     },
+     {
+      "Vd": 1.4,
+      "Id_A_per_um": 0.0002695018158401799
+     },
+     {
+      "Vd": 1.5,
+      "Id_A_per_um": 0.0002717852669376407
+     },
+     {
+      "Vd": 1.6,
+      "Id_A_per_um": 0.00027336776887306217
+     },
+     {
+      "Vd": 1.7,
+      "Id_A_per_um": 0.0002745448067805093
+     },
+     {
+      "Vd": 1.8,
+      "Id_A_per_um": 0.00027549746675200714
+     },
+     {
+      "Vd": 1.9,
+      "Id_A_per_um": 0.0002763216528009856
+     },
+     {
+      "Vd": 2.0,
+      "Id_A_per_um": 0.0002770656955896188
+     }
+    ]
+   }
+  ],
+  "analytic_check": {
+   "analytic": {
+    "VFB": -0.9999332074672731,
+    "phiF": 0.4271313139247668,
+    "Cox_F_cm2": 3.453133246992e-07,
+    "Qdep_C_cm2": 1.6911466395408564e-07,
+    "Vt": 0.3440720739604281,
+    "SS_mV_dec": 76.58946738927938,
+    "Wdmax_cm": 1.055530709693808e-05
+   },
+   "tolerances": {
+    "Vt_V": 0.1,
+    "SS_rel": 0.15
+   },
+   "Vt_sim": 0.4597734733889064,
+   "Vt_chargesheet_extrapolated": 0.45477856331395883,
+   "dVt": 0.004994910074947567,
+   "Vt_classical_2phiF": 0.3440720739604281,
+   "SS_sim_mV_dec": 79.67546278760264,
+   "gm_max_S_per_um": 1.2911647568120045e-05,
+   "mu_eff_extracted_cm2Vs": 1495.6442910932892,
+   "mu_input_cm2Vs": 1500.0,
+   "chargesheet_transfer": [
+    {
+     "Vg": -0.2559,
+     "Id_A_per_um": 5.919079380112775e-15
+    },
+    {
+     "Vg": -0.2059,
+     "Id_A_per_um": 2.2134059567349452e-14
+    },
+    {
+     "Vg": -0.1559,
+     "Id_A_per_um": 8.44638787588031e-14
+    },
+    {
+     "Vg": -0.1059,
+     "Id_A_per_um": 3.2829334050329557e-13
+    },
+    {
+     "Vg": -0.0559,
+     "Id_A_per_um": 1.2975815583344666e-12
+    },
+    {
+     "Vg": -0.0059,
+     "Id_A_per_um": 5.208174829662753e-12
+    },
+    {
+     "Vg": 0.0441,
+     "Id_A_per_um": 2.1202355258331414e-11
+    },
+    {
+     "Vg": 0.0941,
+     "Id_A_per_um": 8.744526991023396e-11
+    },
+    {
+     "Vg": 0.1441,
+     "Id_A_per_um": 3.6490573503736753e-10
+    },
+    {
+     "Vg": 0.1941,
+     "Id_A_per_um": 1.5370217980022983e-09
+    },
+    {
+     "Vg": 0.2441,
+     "Id_A_per_um": 6.48676146805923e-09
+    },
+    {
+     "Vg": 0.2941,
+     "Id_A_per_um": 2.669137050029349e-08
+    },
+    {
+     "Vg": 0.3441,
+     "Id_A_per_um": 9.834220715848159e-08
+    },
+    {
+     "Vg": 0.3941,
+     "Id_A_per_um": 2.814763557021731e-07
+    },
+    {
+     "Vg": 0.4441,
+     "Id_A_per_um": 5.95803256229756e-07
+    },
+    {
+     "Vg": 0.4941,
+     "Id_A_per_um": 1.0073419040781357e-06
+    },
+    {
+     "Vg": 0.5441,
+     "Id_A_per_um": 1.4796839314030666e-06
+    },
+    {
+     "Vg": 0.5941,
+     "Id_A_per_um": 1.990185270123117e-06
+    },
+    {
+     "Vg": 0.6441,
+     "Id_A_per_um": 2.525901881645248e-06
+    },
+    {
+     "Vg": 0.6941,
+     "Id_A_per_um": 3.0792080121920507e-06
+    },
+    {
+     "Vg": 0.7441,
+     "Id_A_per_um": 3.6453680473679364e-06
+    },
+    {
+     "Vg": 0.7941,
+     "Id_A_per_um": 4.2212861764227435e-06
+    },
+    {
+     "Vg": 0.8441,
+     "Id_A_per_um": 4.8048457910427895e-06
+    },
+    {
+     "Vg": 0.8941,
+     "Id_A_per_um": 5.3945436950347745e-06
+    },
+    {
+     "Vg": 0.9441,
+     "Id_A_per_um": 5.989277516555974e-06
+    },
+    {
+     "Vg": 0.9941,
+     "Id_A_per_um": 6.588216535984032e-06
+    },
+    {
+     "Vg": 1.0441,
+     "Id_A_per_um": 7.190720036787174e-06
+    },
+    {
+     "Vg": 1.0941,
+     "Id_A_per_um": 7.796283874275167e-06
+    },
+    {
+     "Vg": 1.1441,
+     "Id_A_per_um": 8.404504430418754e-06
+    },
+    {
+     "Vg": 1.1941,
+     "Id_A_per_um": 9.015053638374235e-06
+    },
+    {
+     "Vg": 1.2441,
+     "Id_A_per_um": 9.627661263505466e-06
+    },
+    {
+     "Vg": 1.2941,
+     "Id_A_per_um": 1.0242102066210841e-05
+    },
+    {
+     "Vg": 1.3441,
+     "Id_A_per_um": 1.0858186325941607e-05
+    },
+    {
+     "Vg": 1.3941,
+     "Id_A_per_um": 1.1475752728023332e-05
+    },
+    {
+     "Vg": 1.4441,
+     "Id_A_per_um": 1.2094662942825417e-05
+    },
+    {
+     "Vg": 1.4941,
+     "Id_A_per_um": 1.2714797437756206e-05
+    },
+    {
+     "Vg": 1.5441,
+     "Id_A_per_um": 1.33360522012522e-05
+    },
+    {
+     "Vg": 1.5941,
+     "Id_A_per_um": 1.395833615094507e-05
+    },
+    {
+     "Vg": 1.6441,
+     "Id_A_per_um": 1.4581569061723817e-05
+    },
+    {
+     "Vg": 1.6941,
+     "Id_A_per_um": 1.5205679893538571e-05
+    },
+    {
+     "Vg": 1.7441,
+     "Id_A_per_um": 1.5830605429911377e-05
+    },
+    {
+     "Vg": 1.7941,
+     "Id_A_per_um": 1.645628916038303e-05
+    },
+    {
+     "Vg": 1.8441,
+     "Id_A_per_um": 1.7082680356260923e-05
+    }
+   ],
+   "pass": true,
+   "summary": "Vt sim 0.460 V vs charge-sheet 0.455 V (dVt +0.005; classical 2phiF 0.344); SS sim 79.7 vs ideal 76.6 mV/dec; mu_eff from gm 1496 vs input 1500 cm2/Vs"
+  },
+  "solver_log_tail": "or: 1.42282e+16\n      Equation: \"HoleContinuityEquation\"\tRelError: 6.27062e-01\tAbsError: 2.42626e+12\n      Equation: \"PotentialEquation\"\tRelError: 1.07190e-02\tAbsError: 2.57446e-02\n    Region: \"oxide\"\tRelError: 1.01498e-02\tAbsError: 2.57446e-02\n      Equation: \"PotentialEquation\"\tRelError: 1.01498e-02\tAbsError: 2.57446e-02\nIteration: 3\n  Device: \"nmos\"\tRelError: 1.01364e-01\tAbsError: 3.24546e+15\n    Region: \"bulk\"\tRelError: 9.78611e-02\tAbsError: 3.24546e+15\n      Equation: \"ElectronContinuityEquation\"\tRelError: 4.64439e-02\tAbsError: 3.24098e+15\n      Equation: \"HoleContinuityEquation\"\tRelError: 3.58413e-02\tAbsError: 4.48211e+12\n      Equation: \"PotentialEquation\"\tRelError: 1.55758e-02\tAbsError: 9.16585e-03\n    Region: \"oxide\"\tRelError: 3.50282e-03\tAbsError: 9.06276e-03\n      Equation: \"PotentialEquation\"\tRelError: 3.50282e-03\tAbsError: 9.06276e-03\nIteration: 4\n  Device: \"nmos\"\tRelError: 1.33267e-01\tAbsError: 3.09231e+15\n    Region: \"bulk\"\tRelError: 1.33220e-01\tAbsError: 3.09231e+15\n      Equation: \"ElectronContinuityEquation\"\tRelError: 6.51174e-02\tAbsError: 3.08670e+15\n      Equation: \"HoleContinuityEquation\"\tRelError: 4.89712e-02\tAbsError: 5.61011e+12\n      Equation: \"PotentialEquation\"\tRelError: 1.91311e-02\tAbsError: 2.77910e-04\n    Region: \"oxide\"\tRelError: 4.70603e-05\tAbsError: 1.17312e-04\n      Equation: \"PotentialEquation\"\tRelError: 4.70603e-05\tAbsError: 1.17312e-04\nIteration: 5\n  Device: \"nmos\"\tRelError: 2.47510e-03\tAbsError: 1.70844e+12\n    Region: \"bulk\"\tRelError: 2.47510e-03\tAbsError: 1.70844e+12\n      Equation: \"ElectronContinuityEquation\"\tRelError: 9.30725e-05\tAbsError: 1.70561e+12\n      Equation: \"HoleContinuityEquation\"\tRelError: 2.37169e-03\tAbsError: 2.83352e+09\n      Equation: \"PotentialEquation\"\tRelError: 1.03282e-05\tAbsError: 2.39153e-07\n    Region: \"oxide\"\tRelError: 2.69023e-09\tAbsError: 6.45898e-09\n      Equation: \"PotentialEquation\"\tRelError: 2.69023e-09\tAbsError: 6.45898e-09\nIteration: 6\n  Device: \"nmos\"\tRelError: 2.96948e-09\tAbsError: 1.28042e+06\n    Region: \"bulk\"\tRelError: 2.96948e-09\tAbsError: 1.28042e+06\n      Equation: \"ElectronContinuityEquation\"\tRelError: 8.30532e-11\tAbsError: 1.27675e+06\n      Equation: \"HoleContinuityEquation\"\tRelError: 2.87314e-09\tAbsError: 3.66443e+03\n      Equation: \"PotentialEquation\"\tRelError: 1.32877e-11\tAbsError: 2.91957e-13\n    Region: \"oxide\"\tRelError: 8.68338e-16\tAbsError: 1.81212e-15\n      Equation: \"PotentialEquation\"\tRelError: 8.68338e-16\tAbsError: 1.81212e-15\nIteration: 7\n  Device: \"nmos\"\tRelError: 6.02696e-11\tAbsError: 1.42162e+04\n    Region: \"bulk\"\tRelError: 6.02695e-11\tAbsError: 1.42162e+04\n      Equation: \"ElectronContinuityEquation\"\tRelError: 5.64093e-11\tAbsError: 1.41996e+04\n      Equation: \"HoleContinuityEquation\"\tRelError: 3.83681e-12\tAbsError: 1.66075e+01\n      Equation: \"PotentialEquation\"\tRelError: 2.34104e-14\tAbsError: 2.63298e-16\n    Region: \"oxide\"\tRelError: 1.14039e-16\tAbsError: 2.32446e-16\n      Equation: \"PotentialEquation\"\tRelError: 1.14039e-16\tAbsError: 2.32446e-16\n",
+  "inputs": {
+   "NA_body": 1e+17,
+   "N_sd": 1e+20,
+   "L_gate_cm": 0.0002,
+   "tox_cm": 1e-06,
+   "eps_ox": 3.9,
+   "gate_workfunction_eV": 4.05,
+   "vd_lin": 0.05,
+   "vg_sweep": [
+    -0.2559,
+    -0.2059,
+    -0.1559,
+    -0.1059,
+    -0.0559,
+    -0.0059,
+    0.0441,
+    0.0941,
+    0.1441,
+    0.1941,
+    0.2441,
+    0.2941,
+    0.3441,
+    0.3941,
+    0.4441,
+    0.4941,
+    0.5441,
+    0.5941,
+    0.6441,
+    0.6941,
+    0.7441,
+    0.7941,
+    0.8441,
+    0.8941,
+    0.9441,
+    0.9941,
+    1.0441,
+    1.0941,
+    1.1441,
+    1.1941,
+    1.2441,
+    1.2941,
+    1.3441,
+    1.3941,
+    1.4441,
+    1.4941,
+    1.5441,
+    1.5941,
+    1.6441,
+    1.6941,
+    1.7441,
+    1.7941,
+    1.8441
+   ],
+   "vd_sweep": [
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0,
+    1.1,
+    1.2,
+    1.3,
+    1.4,
+    1.5,
+    1.6,
+    1.7,
+    1.8,
+    1.9,
+    2.0
+   ],
+   "vg_output": [
+    1.0,
+    2.0
+   ],
+   "sd_junction_depth_cm": 1e-05
+  },
+  "material": "Si (literature table)",
+  "provenance": [
+   {
+    "param": "band_gap_eV",
+    "value": 1.12,
+    "unit": "eV",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "electron_affinity_eV",
+    "value": 4.05,
+    "unit": "eV",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "eps_r",
+    "value": 11.8,
+    "unit": "",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "mu_n_cm2Vs",
+    "value": 1500.0,
+    "unit": "cm^2/(V s)",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "mu_p_cm2Vs",
+    "value": 450.0,
+    "unit": "cm^2/(V s)",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "intrinsic (lattice-limited) mobility; secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "srh_lifetime_n_s",
+    "value": 1e-06,
+    "unit": "s",
+    "source": "assumed",
+    "ref": "",
+    "note": "placeholder; set from measurement or SHANI"
+   },
+   {
+    "param": "srh_lifetime_p_s",
+    "value": 1e-06,
+    "unit": "s",
+    "source": "assumed",
+    "ref": "",
+    "note": "placeholder; set from measurement or SHANI"
+   },
+   {
+    "param": "Nc_cm3",
+    "value": 2.8e+19,
+    "unit": "cm^-3",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   },
+   {
+    "param": "Nv_cm3",
+    "value": 1.04e+19,
+    "unit": "cm^-3",
+    "source": "literature",
+    "ref": "https://www.ele.uri.edu/Courses/ele533/05/midterm/Physicaldata.html",
+    "note": "secondary course table (Si, 300 K); the page cites no primary source. Values match the classic Sze-era table; other tables differ, e.g. Nv 1.04e19 vs ~1.8-3.1e19 cm^-3 elsewhere"
+   }
+  ],
+  "physics_limits": [
+   "constant low-field mobility (no doping/field dependence, no velocity saturation)",
+   "Boltzmann statistics (invalid for degenerate doping near contacts)",
+   "SRH recombination with mid-gap traps only (no Auger, radiative, or tunnelling)",
+   "no band-gap narrowing, no quantum confinement, no interface/oxide charge",
+   "homojunction only (single semiconductor region)"
+  ],
+  "warnings": [
+   "parameters tagged 'assumed' were used: srh_lifetime_n_s, srh_lifetime_p_s"
+  ],
+  "seconds": 214.6
+ }
+}

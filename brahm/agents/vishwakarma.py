@@ -830,3 +830,130 @@ async def vishwakarma_list_jobs(args: dict) -> dict:
         except Exception as exc:
             return _err("List jobs failed", str(exc))
     return await asyncio.to_thread(_list)
+
+
+# =========================================================
+# DEVICE SIMULATION  (DFT -> BoltzTraP2 -> DEVSIM)
+# =========================================================
+#
+# Added 2026-10-15. Two tools: build a material parameter set from a DFT job
+# (every value tagged with its source), then run a drift-diffusion device on
+# it. Each simulation result carries an analytic cross-check and a pass flag;
+# a failed check is reported in "warnings", never hidden. See
+# agents/vishwakarma/vishwakarma/device/README.md.
+
+_DEVICE_OVERRIDES_DESC = (
+    "Values DFT does not supply, as {key: value} (tagged 'user') or "
+    "{key: {value, source, ref, note}} with source one of literature/user/"
+    "assumed/derived. Keys: band_gap_eV, electron_affinity_eV, eps_r, "
+    "mu_n_cm2Vs, mu_p_cm2Vs (or tau_momentum_n_s / tau_momentum_p_s to derive "
+    "mobility from the DFT conductivity mass), srh_lifetime_n_s, "
+    "srh_lifetime_p_s; Nc_cm3/Nv_cm3 override the DFT values. A 'literature' "
+    "value must carry a ref."
+)
+
+
+def _trim_device_result(res: dict) -> dict:
+    """Keep MCP payloads readable: long solver logs and comparison curves."""
+    if isinstance(res, dict):
+        if "solver_log_tail" in res:
+            res["solver_log_tail"] = res["solver_log_tail"][-600:]
+        chk = res.get("analytic_check")
+        if isinstance(chk, dict):
+            chk.pop("chargesheet_transfer", None)
+    return res
+
+
+@brahm_tool(
+    name="vishwakarma_device_material", group="vishwakarma",
+    description=(
+        "Build a device-simulation material parameter set from a Vishwakarma DFT "
+        "job. Uses BoltzTraP2 on the job's band structure for the effective "
+        "densities of states (Nc, Nv) and conductivity effective masses, plus the "
+        "uncorrected DFT gap for reference. Everything DFT cannot give (corrected "
+        "gap, electron affinity, permittivity, mobility or momentum relaxation "
+        "time, SRH lifetimes) comes in via overrides with a source tag. The job "
+        "must be a dense uniform-mesh NSCF with conduction bands, e.g. the nscf "
+        "step of vishwakarma_run_dos. Returns material (pass it to "
+        "vishwakarma_device_simulate), the transport report, and any problems."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "name":          {"type": "string", "description": "Material label, e.g. 'Si' or 'ZnSe'."},
+            "job_id":        {"type": "string", "description": "NSCF job id (vishwakarma_list_jobs)."},
+            "save_dir":      {"type": "string", "description": "Alternatively, a QE .save directory path."},
+            "T":             {"type": "number", "default": 300},
+            "overrides":     {"type": "object", "description": _DEVICE_OVERRIDES_DESC},
+            "interp_factor": {"type": "integer", "default": 8},
+            "allow_dft_gap": {"type": "boolean", "default": False,
+                              "description": "Use the uncorrected DFT gap if no band_gap_eV override is given (warned)."},
+        },
+        "required": ["name"],
+    },
+)
+async def vishwakarma_device_material(args: dict) -> dict:
+    def _run() -> dict:
+        try:
+            from vishwakarma.device import pipeline
+        except ImportError as exc:
+            return _err("Device module import failed (pip install devsim BoltzTraP2?)", str(exc))
+        if not (args.get("job_id") or args.get("save_dir")):
+            return _err("Pass job_id (an NSCF job) or save_dir")
+        try:
+            return _ok(pipeline.material_from_dft(
+                args["name"], job_id=args.get("job_id"), workdir=QE_WORKDIR,
+                save_dir=args.get("save_dir"), T=args.get("T", 300.0),
+                overrides=args.get("overrides"),
+                interp_factor=args.get("interp_factor", 8),
+                allow_dft_gap=args.get("allow_dft_gap", False)))
+        except Exception as exc:
+            return _err("Material extraction failed", f"{type(exc).__name__}: {exc}")
+    return await asyncio.to_thread(_run)
+
+
+@brahm_tool(
+    name="vishwakarma_device_simulate", group="vishwakarma",
+    description=(
+        "Run a drift-diffusion device simulation (DEVSIM) on a material from "
+        "vishwakarma_device_material. device='pn_diode_1d' returns J-V; "
+        "device='nmosfet_2d' returns Id-Vg at low Vd (and Id-Vd curves if "
+        "vg_output is given). Every result includes analytic_check (Shockley "
+        "diode / charge-sheet MOS) with a pass flag, the parameter provenance "
+        "table, and the physics not modelled. Constant mobility, Boltzmann "
+        "statistics, homojunction only. A 2D MOSFET takes about 1-2 minutes."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "device":   {"type": "string", "enum": ["pn_diode_1d", "nmosfet_2d"]},
+            "material": {"type": "object", "description": "The 'material' object returned by vishwakarma_device_material."},
+            "options":  {"type": "object", "description": (
+                "pn_diode_1d: NA, ND (cm^-3), length_p_cm, length_n_cm, v_forward, v_reverse (lists of V). "
+                "nmosfet_2d: NA_body, N_sd (cm^-3), L_gate_cm, tox_cm, eps_ox, gate_workfunction_eV, "
+                "vd_lin, vg_sweep, vd_sweep, vg_output, sd_junction_depth_cm.")},
+        },
+        "required": ["device", "material"],
+    },
+)
+async def vishwakarma_device_simulate(args: dict) -> dict:
+    def _run() -> dict:
+        try:
+            from vishwakarma.device import tcad
+            from vishwakarma.device.params import MaterialParams
+        except ImportError as exc:
+            return _err("Device module import failed (pip install devsim BoltzTraP2?)", str(exc))
+        runners = {"pn_diode_1d": tcad.pn_diode_1d, "nmosfet_2d": tcad.nmosfet_2d}
+        dev = args.get("device")
+        if dev not in runners:
+            return _err(f"Unknown device {dev!r}", f"choose from {sorted(runners)}")
+        try:
+            m = MaterialParams.from_dict(args["material"])
+            res = runners[dev](m, **(args.get("options") or {}))
+            if not res.get("success"):
+                return _err("Device simulation failed", res.get("error", ""))
+            return _ok(_trim_device_result(res))
+        except Exception as exc:
+            return _err("Device simulation failed", f"{type(exc).__name__}: {exc}")
+    return await asyncio.to_thread(_run)
+

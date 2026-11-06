@@ -1,0 +1,114 @@
+{
+  "workflow": "dos_workflow",
+  "success": true,
+  "failed_at": null,
+  "step_count": 3,
+  "steps": [
+    {
+      "step": "scf",
+      "job_id": "5fd2b783-8f55-4521-970c-a47ffffc7480",
+      "status": {
+        "job_id": "5fd2b783-8f55-4521-970c-a47ffffc7480",
+        "label": "si_device_ref_scf",
+        "code": "pw",
+        "status": "completed",
+        "created_at": "2026-10-15T12:02:31.113078+00:00",
+        "started_at": "2026-10-15T12:02:31.117243+00:00",
+        "ended_at": "2026-10-15T12:02:56.669392+00:00",
+        "exit_code": 0,
+        "error": null,
+        "mpi_np": 1,
+        "extra_args": [],
+        "workdir": "/media/shardul/4202386902386457/brahm/agents/vishwakarma/jobs/5fd2b783-8f55-4521-970c-a47ffffc7480"
+      },
+      "parsed": {
+        "code": "pw",
+        "converged": true,
+        "total_energy_ry": -22.83932719,
+        "total_energy_ev": -310.744877,
+        "fermi_energy_ev": 6.5011,
+        "homo_ev": null,
+        "gap_ev": null,
+        "forces_ry_au": null,
+        "max_force_ry_au": null,
+        "stress_kbar": null,
+        "pressure_kbar": null,
+        "final_cell_ang": null,
+        "final_positions": null,
+        "scf_iterations": 8,
+        "wall_time_s": null,
+        "warnings": [],
+        "errors": [],
+        "calculation_type": null
+      }
+    },
+    {
+      "step": "nscf",
+      "job_id": "1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+      "status": {
+        "job_id": "1ef22e16-af64-4d20-b84c-b5bf79b33d68",
+        "label": "si_device_ref_nscf",
+        "code": "pw",
+        "status": "completed",
+        "created_at": "2026-10-15T12:02:56.680457+00:00",
+        "started_at": "2026-10-15T12:02:56.683769+00:00",
+        "ended_at": "2026-10-15T12:06:26.998249+00:00",
+        "exit_code": 0,
+        "error": null,
+        "mpi_np": 1,
+        "extra_args": [],
+        "workdir": "/media/shardul/4202386902386457/brahm/agents/vishwakarma/jobs/1ef22e16-af64-4d20-b84c-b5bf79b33d68"
+      },
+      "parsed": {
+        "code": "pw",
+        "converged": false,
+        "total_energy_ry": null,
+        "total_energy_ev": null,
+        "fermi_energy_ev": 6.4856,
+        "homo_ev": null,
+        "gap_ev": null,
+        "forces_ry_au": null,
+        "max_force_ry_au": null,
+        "stress_kbar": null,
+        "pressure_kbar": null,
+        "final_cell_ang": null,
+        "final_positions": null,
+        "scf_iterations": null,
+        "wall_time_s": null,
+        "warnings": [],
+        "errors": [],
+        "calculation_type": null
+      }
+    },
+    {
+      "step": "dos",
+      "job_id": "eef45fb3-0c14-45eb-9bcb-7fe5120284bf",
+      "status": {
+        "job_id": "eef45fb3-0c14-45eb-9bcb-7fe5120284bf",
+        "label": "si_device_ref_dos",
+        "code": "dos",
+        "status": "completed",
+        "created_at": "2026-10-15T12:06:27.002435+00:00",
+        "started_at": "2026-10-15T12:06:27.006817+00:00",
+        "ended_at": "2026-10-15T12:06:31.286440+00:00",
+        "exit_code": 0,
+        "error": null,
+        "mpi_np": 1,
+        "extra_args": [],
+        "workdir": "/media/shardul/4202386902386457/brahm/agents/vishwakarma/jobs/eef45fb3-0c14-45eb-9bcb-7fe5120284bf"
+      },
+      "parsed": {
+        "code": "dos",
+        "converged": false,
+        "fermi_ev": null,
+        "warnings": []
+      }
+    }
+  ],
+  "summary": {
+    "job_id": "eef45fb3-0c14-45eb-9bcb-7fe5120284bf",
+    "converged": false,
+    "scf_iterations": 8,
+    "total_energy_ev": -310.744877
+  }
+}
