@@ -533,6 +533,8 @@ class PlotParams(BaseModel):
     sigma_eV:   float = 0.05
     energy_window_eV: list = [-14.0, 10.0]
     bands:      Optional[list] = None       # 0-based [valence, conduction] for bands3d
+    labels:     Optional[list] = None       # k-path node labels for kind="bands"
+    isovalue:   Optional[float] = None      # kind="density": e/Angstrom^3
     out_dir:    Optional[str] = None
 
 
@@ -547,7 +549,8 @@ async def plot(params: PlotParams):
             plotting.plot_job, job_id=params.job_id, workdir=_WORKDIR, save_dir=params.save_dir,
             kind=params.kind, out_dir=params.out_dir, sigma_eV=params.sigma_eV,
             window_eV=tuple(params.energy_window_eV),
-            bands=tuple(params.bands) if params.bands else None)
+            bands=tuple(params.bands) if params.bands else None, labels=params.labels or None,
+            isovalue=params.isovalue)
         return _ok(res)
     except Exception as exc:
         return _err("Plotting failed", f"{type(exc).__name__}: {exc}")

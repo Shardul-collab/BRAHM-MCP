@@ -75,7 +75,20 @@ def _floats(text: str) -> list:
     return [float(x) for x in text.split()]
 
 
-def read_xml(path) -> dict:
+def read_xml_path(path) -> dict:
+    """Same fields as read_xml, for a k-path run (no Monkhorst-Pack mesh)."""
+    return read_xml(path, need_mesh=False)
+
+
+def run_kind(path) -> str:
+    """'mesh' for a uniform Monkhorst-Pack run, 'path' for an explicit k-list."""
+    root = ET.parse(str(path)).getroot()
+    mp = root.find("output/band_structure/starting_k_points/monkhorst_pack")
+    return "mesh" if mp is not None else "path"
+
+
+def read_xml(path, need_mesh: bool | None = True) -> dict:
+    """need_mesh: True = uniform mesh required, False = k-path required, None = either."""
     root = ET.parse(str(path)).getroot()
     out = root.find("output")
     if out is None:
@@ -92,11 +105,16 @@ def read_xml(path) -> dict:
     atoms = [(a.attrib["name"], _floats(a.text)) for a in st.findall("atomic_positions/atom")]
     mp = bs.find("starting_k_points/monkhorst_pack")
     if mp is None:
-        raise BandGridError(
-            "k-points are not a Monkhorst-Pack mesh (a bands/path run?). "
-            "Plotting needs a uniform-mesh NSCF.")
-    mesh = (int(mp.attrib["nk1"]), int(mp.attrib["nk2"]), int(mp.attrib["nk3"]))
-    shift = (int(mp.attrib["k1"]), int(mp.attrib["k2"]), int(mp.attrib["k3"]))
+        if need_mesh is True:
+            raise BandGridError(
+                "k-points are not a Monkhorst-Pack mesh (a bands/path run?). "
+                "DOS and 3D bands need a uniform-mesh NSCF; use kind='bands' for a k-path run.")
+        mesh = shift = None
+    else:
+        if need_mesh is False:
+            raise BandGridError("this is a uniform-mesh run, not a k-path; use kind='dos' or 'bands3d'.")
+        mesh = (int(mp.attrib["nk1"]), int(mp.attrib["nk2"]), int(mp.attrib["nk3"]))
+        shift = (int(mp.attrib["k1"]), int(mp.attrib["k2"]), int(mp.attrib["k3"]))
     ks, en = [], []
     for e in bs.findall("ks_energies"):
         ks.append(_floats(e.find("k_point").text))

@@ -970,8 +970,12 @@ async def vishwakarma_device_simulate(args: dict) -> dict:
         "explicit, default 0.05 eV; dos.x's own degauss is in Ry and can swallow a gap). "
         "kind='bands3d' writes 3D surfaces of the highest valence and lowest conduction "
         "band over the k_z=0 plane of the first Brillouin zone, as a PNG and an "
-        "interactive HTML (rotate/zoom). kind='all' does both. The job must be a "
-        "uniform-mesh NSCF or SCF (not a bands path). Returns the file paths (under "
+        "interactive HTML (rotate/zoom). kind='bands' draws the 2D band structure for a "
+        "k-path job (vishwakarma_run_bands). kind='all' picks what fits the run: dos + "
+        "bands3d for a uniform-mesh NSCF/SCF, bands for a k-path. kind='density' draws a 3D "
+        "isosurface of the valence charge density (PNG + interactive HTML) rebuilt from "
+        "charge-density.hdf5, and refuses to plot if it does not integrate to the electron "
+        "count. Returns the file paths (under "
         "<job folder>/plots/), the band edges read from the k-grid, and the electron "
         "count the DOS integrates to as a check."
     ),
@@ -980,7 +984,15 @@ async def vishwakarma_device_simulate(args: dict) -> dict:
         "properties": {
             "job_id":    {"type": "string", "description": "Job id of an NSCF/SCF job (vishwakarma_list_jobs)."},
             "save_dir":  {"type": "string", "description": "Alternatively, a QE .save directory path."},
-            "kind":      {"type": "string", "enum": ["dos", "bands3d", "all"], "default": "all"},
+            "kind":      {"type": "string", "enum": ["dos", "bands3d", "bands", "density", "all"], "default": "all",
+                          "description": "dos / bands3d need a uniform-mesh run; bands needs a k-path run "
+                                         "(vishwakarma_run_bands); density works on any finished pw.x run; "
+                                         "all picks what fits the run (never density)."},
+            "isovalue":  {"type": "number",
+                          "description": "kind='density': isosurface level in e/Angstrom^3 "
+                                         "(default: the level above which 10 % of the cell lies)."},
+            "labels":    {"type": "array", "items": {"type": "string"},
+                          "description": "k-path node labels for kind='bands', one per node (default: auto for fcc)."},
             "sigma_eV":  {"type": "number", "default": 0.05, "description": "Gaussian broadening for the DOS."},
             "energy_window_eV": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2,
                                  "default": [-14.0, 10.0], "description": "DOS window relative to the Fermi level."},
@@ -1005,7 +1017,9 @@ async def vishwakarma_plot(args: dict) -> dict:
                 kind=args.get("kind", "all"), out_dir=args.get("out_dir"),
                 sigma_eV=args.get("sigma_eV", 0.05),
                 window_eV=tuple(args.get("energy_window_eV") or (-14.0, 10.0)),
-                bands=tuple(args["bands"]) if args.get("bands") else None))
+                bands=tuple(args["bands"]) if args.get("bands") else None,
+                labels=args.get("labels") or None,
+                isovalue=args.get("isovalue")))
         except Exception as exc:
             return _err("Plotting failed", f"{type(exc).__name__}: {exc}")
     return await asyncio.to_thread(_run)

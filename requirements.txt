@@ -40,3 +40,4 @@ plotly==6.7.0
 pyvista==0.49.2
 spglib==2.7.0
 vtk==9.7.2
+h5py==3.16.0   # charge-density.hdf5 for density isosurfaces
